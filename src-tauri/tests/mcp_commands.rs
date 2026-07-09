@@ -69,6 +69,45 @@ fn import_default_config_claude_persists_provider() {
 }
 
 #[test]
+fn import_default_config_claude_official_login_skips_default() {
+    let _guard = test_mutex().lock().expect("acquire test mutex");
+    reset_test_fs();
+    let _home = ensure_test_home();
+
+    let settings_path = get_claude_settings_path();
+    if let Some(parent) = settings_path.parent() {
+        fs::create_dir_all(parent).expect("create claude settings dir");
+    }
+    // 官方 OAuth 登录形态：settings.json 存在但没有任何第三方接口字段
+    let settings = json!({
+        "env": {},
+        "permissions": { "allow": [] }
+    });
+    fs::write(
+        &settings_path,
+        serde_json::to_string_pretty(&settings).expect("serialize settings"),
+    )
+    .expect("seed claude settings.json");
+
+    let mut config = MultiAppConfig::default();
+    config.ensure_app(&AppType::Claude);
+    let state = create_test_state_with_config(&config).expect("create test state");
+
+    let imported = import_default_config_test_hook(&state, AppType::Claude)
+        .expect("import should succeed as a no-op");
+    assert!(!imported, "official login must not create a default provider");
+
+    let providers = state
+        .db
+        .get_all_providers(AppType::Claude.as_str())
+        .expect("get all providers");
+    assert!(
+        !providers.contains_key("default"),
+        "no default provider should be created for official login"
+    );
+}
+
+#[test]
 fn import_default_config_without_live_file_returns_error() {
     use support::create_test_state;
 

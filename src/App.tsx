@@ -62,6 +62,8 @@ import { ProfileSwitcher } from "@/components/profiles/ProfileSwitcher";
 import { ProviderList } from "@/components/providers/ProviderList";
 import { AddProviderDialog } from "@/components/providers/AddProviderDialog";
 import { EditProviderDialog } from "@/components/providers/EditProviderDialog";
+import { Ai302KeyDialog } from "@/components/providers/Ai302KeyDialog";
+import { isAi302SeedProvider } from "@/config/ai302";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SettingsPage } from "@/components/settings/SettingsPage";
 import { UpdateBadge } from "@/components/UpdateBadge";
@@ -1584,18 +1586,34 @@ function App() {
         onSubmit={addProvider}
       />
 
-      <EditProviderDialog
-        open={Boolean(editingProvider)}
-        provider={effectiveEditingProvider}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditingProvider(null);
-          }
-        }}
-        onSubmit={handleEditProvider}
-        appId={activeApp}
-        isProxyTakeover={isCurrentAppTakeoverActive}
-      />
+      {/* 302 内置种子走「只填 Key」精简弹窗，其余供应商走完整编辑表单 */}
+      {effectiveEditingProvider &&
+      isAi302SeedProvider(effectiveEditingProvider) ? (
+        <Ai302KeyDialog
+          open={Boolean(editingProvider)}
+          provider={effectiveEditingProvider}
+          appId={activeApp}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingProvider(null);
+            }
+          }}
+          onSubmit={handleEditProvider}
+        />
+      ) : (
+        <EditProviderDialog
+          open={Boolean(editingProvider)}
+          provider={effectiveEditingProvider}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingProvider(null);
+            }
+          }}
+          onSubmit={handleEditProvider}
+          appId={activeApp}
+          isProxyTakeover={isCurrentAppTakeoverActive}
+        />
+      )}
 
       {effectiveUsageProvider && (
         <UsageScriptModal

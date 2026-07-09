@@ -146,6 +146,7 @@
     "officialPartner": "公式パートナー",
     "managedByHermes": "Hermes 管理",
     "managedByHermesHint": "Hermes の providers: dict で定義されています。Hermes Web UI で編集または削除してください。",
+    "ai302ProtectedHint": "組み込みの 302.AI プロバイダーは削除できません",
     "openTerminal": "ターミナルを開く",
     "terminalOpened": "ターミナルを開きました",
     "terminalOpenFailed": "ターミナルを開けませんでした",
@@ -2916,5 +2917,11 @@
     "expiredHint": "{{tool}}コマンドを実行してログインを更新してください",
     "queryFailed": "クエリに失敗しました",
     "refresh": "更新"
+  },
+  "ai302": {
+    "dialogTitle": "302.AI API Key",
+    "dialogHint": "エンドポイントとモデルは設定済みで、モデルはクライアントに自動追従します。302.AI の API Key を入力するだけです。",
+    "keyLabel": "API Key",
+    "getKey": "Key がない場合は 302.AI で取得"
   }
 }

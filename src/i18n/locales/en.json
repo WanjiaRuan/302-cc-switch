@@ -146,6 +146,7 @@
     "officialPartner": "Official Partner",
     "managedByHermes": "Hermes Managed",
     "managedByHermesHint": "Defined in Hermes' providers: dict. Edit or remove it via Hermes Web UI.",
+    "ai302ProtectedHint": "The built-in 302.AI provider cannot be deleted",
     "openTerminal": "Open Terminal",
     "terminalOpened": "Terminal opened",
     "terminalOpenFailed": "Failed to open terminal",
@@ -2916,5 +2917,11 @@
     "expiredHint": "Run the {{tool}} command to refresh your login",
     "queryFailed": "Query failed",
     "refresh": "Refresh"
+  },
+  "ai302": {
+    "dialogTitle": "302.AI API Key",
+    "dialogHint": "The endpoint and models are preconfigured; models follow your client automatically. Just paste your 302.AI API key.",
+    "keyLabel": "API Key",
+    "getKey": "No key yet? Get one at 302.AI"
   }
 }

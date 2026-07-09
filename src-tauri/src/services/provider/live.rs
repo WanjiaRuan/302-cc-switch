@@ -1279,6 +1279,27 @@ pub fn import_default_config(state: &AppState, app_type: AppType) -> Result<bool
         }
     };
 
+    // Claude 官方登录识别：settings.json 里没有任何第三方接口字段，说明用户
+    // 走的是官方 OAuth 登录。此时不落 "default" 供应商（那只会是一张让人困惑的
+    // 空牌），直接跳过——启动编排会在种子就位后把 claude-official 设为当前。
+    // 与 Codex 的 has_login_material 检测对应；ANTHROPIC_AUTH_TOKEN 也算第三方
+    // 凭据（企业网关常用），三个字段任一非空都不算官方。
+    if matches!(app_type, AppType::Claude) {
+        let env = settings_config.get("env");
+        let has_env = |key: &str| {
+            env.and_then(|e| e.get(key))
+                .and_then(Value::as_str)
+                .is_some_and(|s| !s.trim().is_empty())
+        };
+        if !has_env("ANTHROPIC_BASE_URL")
+            && !has_env("ANTHROPIC_API_KEY")
+            && !has_env("ANTHROPIC_AUTH_TOKEN")
+        {
+            log::info!("Live Claude config looks like official login; skipping default import");
+            return Ok(false);
+        }
+    }
+
     let mut provider = Provider::with_id(
         "default".to_string(),
         "default".to_string(),

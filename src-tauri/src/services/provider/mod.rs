@@ -2158,6 +2158,15 @@ impl ProviderService {
     /// 同时检查本地 settings 和数据库的当前供应商，防止删除任一端正在使用的供应商。
     /// 对于累加模式应用（OpenCode, OpenClaw），可以随时删除任意供应商，同时从 live 配置中移除。
     pub fn delete(state: &AppState, app_type: AppType, id: &str) -> Result<(), AppError> {
+        // 302.AI 种子是产品的招牌入口：前端不给删除按钮，这里兜底拦截
+        if crate::database::is_ai302_seed_id(id) {
+            return Err(AppError::localized(
+                "provider.delete.ai302_protected",
+                "302.AI 预设供应商不可删除",
+                "The built-in 302.AI provider cannot be deleted",
+            ));
+        }
+
         // Additive mode apps - no current provider concept
         if app_type.is_additive_mode() {
             // Single DB read shared across all additive-mode sub-paths below.

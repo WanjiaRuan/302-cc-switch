@@ -146,6 +146,7 @@
     "officialPartner": "官方合作伙伴",
     "managedByHermes": "Hermes 托管",
     "managedByHermesHint": "该条目定义在 Hermes 的 providers: dict，请在 Hermes Web UI 中编辑或删除。",
+    "ai302ProtectedHint": "302.AI 预设供应商不可删除",
     "openTerminal": "打开终端",
     "terminalOpened": "终端已打开",
     "terminalOpenFailed": "打开终端失败",
@@ -2916,5 +2917,11 @@
     "expiredHint": "请运行 {{tool}} 命令刷新登录",
     "queryFailed": "查询失败",
     "refresh": "刷新"
+  },
+  "ai302": {
+    "dialogTitle": "302.AI API Key",
+    "dialogHint": "接口地址与模型已预置，模型自动跟随客户端。只需填写你的 302.AI API Key。",
+    "keyLabel": "API Key",
+    "getKey": "没有 Key？去 302.AI 领取"
   }
 }

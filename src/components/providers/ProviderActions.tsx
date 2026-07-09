@@ -39,6 +39,8 @@ interface ProviderActionsProps {
   isOfficialBlockedByProxy?: boolean;
   // Hermes v12+ providers: dict overlay — edit/delete must go through Web UI
   isReadOnly?: boolean;
+  // 302.AI 内置种子：产品招牌入口，不可删除
+  isProtected?: boolean;
   // OpenClaw: default model
   isDefaultModel?: boolean;
   onSetAsDefault?: () => void;
@@ -77,6 +79,7 @@ export function ProviderActions({
   onToggleFailover,
   isOfficialBlockedByProxy = false,
   isReadOnly = false,
+  isProtected = false,
   // OpenClaw: default model
   isDefaultModel = false,
   onSetAsDefault,
@@ -221,9 +224,14 @@ export function ProviderActions({
   const buttonState = getMainButtonState();
 
   const canDelete =
-    !isReadOnly && (isOmo || isAdditiveMode ? true : !isCurrent);
+    !isReadOnly &&
+    !isProtected &&
+    (isOmo || isAdditiveMode ? true : !isCurrent);
   const readOnlyHint = t("provider.managedByHermesHint", {
     defaultValue: "由 Hermes 管理，请在 Hermes Web UI 中编辑",
+  });
+  const protectedHint = t("provider.ai302ProtectedHint", {
+    defaultValue: "302.AI 预设供应商不可删除",
   });
 
   return (
@@ -356,7 +364,13 @@ export function ProviderActions({
           size="icon"
           variant="ghost"
           onClick={canDelete ? onDelete : undefined}
-          title={isReadOnly ? readOnlyHint : t("common.delete")}
+          title={
+            isProtected
+              ? protectedHint
+              : isReadOnly
+                ? readOnlyHint
+                : t("common.delete")
+          }
           className={cn(
             iconButtonClass,
             canDelete && "hover:text-red-500 dark:hover:text-red-400",

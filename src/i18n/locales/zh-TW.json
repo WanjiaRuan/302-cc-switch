@@ -146,6 +146,7 @@
     "officialPartner": "官方合作夥伴",
     "managedByHermes": "Hermes 託管",
     "managedByHermesHint": "該專案定義於 Hermes 的 providers: dict，請在 Hermes Web UI 中編輯或刪除。",
+    "ai302ProtectedHint": "302.AI 預設供應商不可刪除",
     "openTerminal": "開啟終端機",
     "terminalOpened": "終端機已開啟",
     "terminalOpenFailed": "開啟終端機失敗",
@@ -2887,5 +2888,11 @@
     "expiredHint": "請執行 {{tool}} 命令重新整理登入",
     "queryFailed": "查詢失敗",
     "refresh": "重新整理"
+  },
+  "ai302": {
+    "dialogTitle": "302.AI API Key",
+    "dialogHint": "介面位址與模型均已預置，模型自動跟隨客戶端。只需填寫你的 302.AI API Key。",
+    "keyLabel": "API Key",
+    "getKey": "沒有 Key？前往 302.AI 領取"
   }
 }

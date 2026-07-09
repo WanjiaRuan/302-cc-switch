@@ -153,6 +153,12 @@ pub(crate) fn is_builtin_seed_id(id: &str) -> bool {
         || AI302_SEEDS.iter().any(|seed| seed.id == id)
 }
 
+/// 判断是否为 302.AI 聚合种子——这是产品的招牌入口，不允许删除
+/// （前端隐藏删除按钮，`ProviderService::delete` 用它兜底拦截）。
+pub(crate) fn is_ai302_seed_id(id: &str) -> bool {
+    AI302_SEEDS.iter().any(|seed| seed.id == id)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

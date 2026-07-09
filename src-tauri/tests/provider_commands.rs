@@ -615,3 +615,33 @@ fn import_refuses_live_config_under_proxy_takeover() {
         "taken-over live import must not create providers"
     );
 }
+
+#[test]
+fn delete_ai302_seed_provider_is_rejected() {
+    let _guard = test_mutex().lock().expect("acquire test mutex");
+    reset_test_fs();
+    ensure_test_home();
+
+    let state = create_test_state().expect("create test state");
+    state
+        .db
+        .init_ai302_providers()
+        .expect("seed 302.AI providers");
+
+    let err = ProviderService::delete(&state, AppType::Claude, "ai302-claude")
+        .expect_err("deleting the 302.AI seed must be rejected");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("302.AI"),
+        "error should mention the protected 302.AI provider: {msg}"
+    );
+
+    let providers = state
+        .db
+        .get_all_providers(AppType::Claude.as_str())
+        .expect("get claude providers");
+    assert!(
+        providers.contains_key("ai302-claude"),
+        "302.AI seed must survive the delete attempt"
+    );
+}

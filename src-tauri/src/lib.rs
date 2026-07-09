@@ -612,6 +612,38 @@ pub fn run() {
                 Err(e) => log::warn!("✗ Failed to seed 302.AI providers: {e}"),
             }
 
+            // 官方登录用户的 live 导入被有意跳过（见 import_default_config 的
+            // 官方识别），此时 Claude 没有 current。种子就位后把 Claude Official
+            // 设为当前，首屏即显示正确的「使用中」，而不是一张没有选中的列表。
+            {
+                let claude = crate::app_config::AppType::Claude;
+                let no_current = crate::settings::get_effective_current_provider(
+                    &app_state.db,
+                    &claude,
+                )
+                .ok()
+                .flatten()
+                .is_none();
+                let official_seeded = app_state
+                    .db
+                    .get_provider_by_id("claude-official", claude.as_str())
+                    .ok()
+                    .flatten()
+                    .is_some();
+                if no_current && official_seeded {
+                    let _ = app_state
+                        .db
+                        .set_current_provider(claude.as_str(), "claude-official");
+                    let _ = crate::settings::set_current_provider(
+                        &claude,
+                        Some("claude-official"),
+                    );
+                    log::info!(
+                        "✓ Claude has no current provider; defaulting to Claude Official"
+                    );
+                }
+            }
+
             {
                 let db_for_codex_history_migration = app_state.db.clone();
                 tauri::async_runtime::spawn_blocking(move || {
