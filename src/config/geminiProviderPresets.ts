@@ -56,7 +56,7 @@ export const geminiProviderPresets: GeminiProviderPreset[] = [
     // 302 官方文档没有单独的 Gemini CLI 页面，此端点待真 key 验证。
     name: "302.AI",
     websiteUrl: "https://302.ai",
-    apiKeyUrl: "https://dash.302.ai",
+    apiKeyUrl: "https://302.ai",
     settingsConfig: {
       env: {
         GOOGLE_GEMINI_BASE_URL: "https://api.302.ai",

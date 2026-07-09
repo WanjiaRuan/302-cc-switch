@@ -103,7 +103,7 @@ export const openclawProviderPresets: OpenClawProviderPreset[] = [
     // 302.AI：Anthropic Messages 协议直连 302 兼容层（官方 302oc CLI 同款端点）。
     name: "302.AI",
     websiteUrl: "https://302.ai",
-    apiKeyUrl: "https://dash.302.ai",
+    apiKeyUrl: "https://302.ai",
     settingsConfig: {
       baseUrl: "https://api.302.ai",
       apiKey: "",

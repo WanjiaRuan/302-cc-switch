@@ -123,7 +123,7 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     // /v1/chat/completions；国内节点 api.302ai.cn 在地址管理里可切换。
     name: "302.AI",
     websiteUrl: "https://302.ai",
-    apiKeyUrl: "https://dash.302.ai",
+    apiKeyUrl: "https://302.ai",
     auth: generateThirdPartyAuth(""),
     config: generateThirdPartyConfig("302ai", "https://api.302.ai/v1"),
     endpointCandidates: ["https://api.302.ai/v1", "https://api.302ai.cn/v1"],

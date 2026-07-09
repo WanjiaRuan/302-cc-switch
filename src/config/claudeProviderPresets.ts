@@ -96,7 +96,7 @@ export const providerPresets: ProviderPreset[] = [
     // 国内用户可在地址管理里切到 api.302ai.cn。
     name: "302.AI",
     websiteUrl: "https://302.ai",
-    apiKeyUrl: "https://dash.302.ai",
+    apiKeyUrl: "https://302.ai",
     apiKeyField: "ANTHROPIC_API_KEY",
     settingsConfig: {
       env: {

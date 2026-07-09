@@ -103,7 +103,7 @@ export const claudeDesktopProviderPresets: ClaudeDesktopProviderPreset[] = [
     // 302.AI Anthropic 兼容层直连；模型走 sonnet/opus/haiku 透传路由。
     name: "302.AI",
     websiteUrl: "https://302.ai",
-    apiKeyUrl: "https://dash.302.ai",
+    apiKeyUrl: "https://302.ai",
     category: "aggregator",
     baseUrl: "https://api.302.ai",
     apiKeyField: "ANTHROPIC_API_KEY",
