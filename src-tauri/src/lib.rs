@@ -603,6 +603,15 @@ pub fn run() {
                 Err(e) => log::warn!("✗ Failed to seed official providers: {e}"),
             }
 
+            // 302.AI 聚合供应商（无 key 占位）：独立 flag，老库也能补种
+            match app_state.db.init_ai302_providers() {
+                Ok(count) if count > 0 => {
+                    log::info!("✓ Seeded {count} 302.AI provider(s)");
+                }
+                Ok(_) => {}
+                Err(e) => log::warn!("✗ Failed to seed 302.AI providers: {e}"),
+            }
+
             {
                 let db_for_codex_history_migration = app_state.db.clone();
                 tauri::async_runtime::spawn_blocking(move || {

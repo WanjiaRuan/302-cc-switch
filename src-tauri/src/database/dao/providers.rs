@@ -556,7 +556,7 @@ impl Database {
     /// 比 `get_all_providers` 轻量得多：只读 id 列、无 endpoint 子查询、首条命中即返回。
     /// 用于 `import_default_config` 决定是否跳过 live 导入。
     pub fn has_non_official_seed_provider(&self, app_type: &str) -> Result<bool, AppError> {
-        use crate::database::dao::providers_seed::is_official_seed_id;
+        use crate::database::dao::providers_seed::is_builtin_seed_id;
         let conn = lock_conn!(self.conn);
         let mut stmt = conn
             .prepare("SELECT id FROM providers WHERE app_type = ?1")
@@ -566,7 +566,7 @@ impl Database {
             .map_err(|e| AppError::Database(e.to_string()))?;
         while let Some(row) = rows.next().map_err(|e| AppError::Database(e.to_string()))? {
             let id: String = row.get(0).map_err(|e| AppError::Database(e.to_string()))?;
-            if !is_official_seed_id(&id) {
+            if !is_builtin_seed_id(&id) {
                 return Ok(true);
             }
         }
@@ -629,7 +629,7 @@ impl Database {
                 settings_config,
                 Some(seed.website_url.to_string()),
             );
-            provider.category = Some("official".to_string());
+            provider.category = Some(seed.category.to_string());
             provider.icon = Some(seed.icon.to_string());
             provider.icon_color = Some(seed.icon_color.to_string());
             provider.sort_index = Some(next_sort_index);
@@ -646,6 +646,71 @@ impl Database {
 
         // 即使 inserted=0（例如用户手动创建过同 id）也设置 flag 防止反复检查
         self.set_setting("official_providers_seeded", "true")?;
+
+        Ok(inserted)
+    }
+
+    /// 启动时调用：补齐 302.AI 聚合供应商（无 key 占位）。
+    ///
+    /// 用**独立** flag `ai302_providers_seeded`，不复用 `official_providers_seeded`——
+    /// 后者在老库（含原版 cc-switch 留下的 ~/.cc-switch）已置 true，共用会导致 302
+    /// 种子永远补不上。独立 flag 保证全新用户与老用户升级都各补一次；用户删除后
+    /// 不再重建（尊重用户意图）。与 `save_provider` 的 UPSERT 语义配合，重复调用
+    /// 也不会覆盖用户激活的供应商。
+    ///
+    /// 302 种子 id 全部在 `is_builtin_seed_id` 覆盖范围内，因此不会被
+    /// `has_non_official_seed_provider` 当成「用户自建第三方」而挡住 live 导入。
+    pub fn init_ai302_providers(&self) -> Result<usize, AppError> {
+        use crate::database::dao::providers_seed::AI302_SEEDS;
+
+        if self
+            .get_bool_flag("ai302_providers_seeded")
+            .unwrap_or(false)
+        {
+            return Ok(0);
+        }
+
+        let mut inserted = 0_usize;
+        let now_ms = chrono::Utc::now().timestamp_millis();
+
+        for seed in AI302_SEEDS {
+            let app_type_str = seed.app_type.as_str();
+
+            // 若该 id 已存在（用户曾手动用过同 id，或上一轮已种），跳过
+            if self.get_provider_by_id(seed.id, app_type_str)?.is_some() {
+                continue;
+            }
+
+            let next_sort_index = self.next_sort_index_for_app(app_type_str)?;
+
+            let settings_config: serde_json::Value =
+                serde_json::from_str(seed.settings_config_json).map_err(|e| {
+                    AppError::Database(format!("Seed JSON parse failed for {}: {e}", seed.id))
+                })?;
+
+            let mut provider = Provider::with_id(
+                seed.id.to_string(),
+                seed.name.to_string(),
+                settings_config,
+                Some(seed.website_url.to_string()),
+            );
+            provider.category = Some(seed.category.to_string());
+            provider.icon = Some(seed.icon.to_string());
+            provider.icon_color = Some(seed.icon_color.to_string());
+            provider.sort_index = Some(next_sort_index);
+            provider.created_at = Some(now_ms);
+
+            self.save_provider(app_type_str, &provider)?;
+            inserted += 1;
+            log::info!(
+                "✓ Seeded 302.AI provider: {} ({})",
+                seed.name,
+                app_type_str
+            );
+        }
+
+        // 即使 inserted=0 也置 flag，避免每轮启动都重扫
+        self.set_setting("ai302_providers_seeded", "true")?;
 
         Ok(inserted)
     }

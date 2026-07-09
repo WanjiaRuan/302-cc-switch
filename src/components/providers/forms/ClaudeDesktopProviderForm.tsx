@@ -462,6 +462,25 @@ export function ClaudeDesktopProviderForm({
     applyDesktopPreset(entry.preset);
   };
 
+  // ── 新建模式默认选中 302.AI ──────────────────────────────────────────
+  // 打开「添加 Claude Desktop 供应商」时自动套用 302.AI 预设（而非停在"自定义"）。
+  // 必须走 handlePresetChange（→ applyDesktopPreset）才会回填端点 / 直连模式 /
+  // 图标——单改 selectedPresetId 不触发回填。布尔哨兵只生效一次：用户若手动切回
+  // "自定义"不会被反复覆盖。编辑模式尊重已有数据，不套预设。
+  const didAutoSelect302 = useRef(false);
+  useEffect(() => {
+    if (initialData) return;
+    if (didAutoSelect302.current) return;
+    const entry = presetEntries.find((item) =>
+      item.preset.name.toLowerCase().includes("302"),
+    );
+    if (!entry) return;
+    didAutoSelect302.current = true;
+    handlePresetChange(entry.id);
+    // handlePresetChange 未 memo 化，靠布尔哨兵保证只生效一次，故不纳入依赖
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData, presetEntries]);
+
   const updateRoute = (index: number, patch: Partial<RouteRowValues>) => {
     setRoutes((current) =>
       current.map((row, i) => (i === index ? { ...row, ...patch } : row)),

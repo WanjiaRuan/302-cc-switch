@@ -79,42 +79,49 @@
    我们的预设按 302cc CLI 用的 `ANTHROPIC_API_KEY`。两者对应不同请求头
    （Bearer vs x-api-key），拿真 key 时测一下网关是否都收；不收就改成 AUTH_TOKEN
 
-### 📌 下一批任务：302 默认化（2026-07-09 已确认需求，未动工）
+### ✅ 已完成：302 默认化（2026-07-09 实装）
 
-主理人确认「302 不是 default」要改两处，代码已定位：
+「302 不是 default」两处都已改完，三个坑全绕过：
 
-1. **添加供应商弹窗默认选中 302.AI**（现在默认是「自定义」）
-   - `src/components/providers/forms/ProviderForm.tsx:304`——`selectedPresetId` 初始值 `"custom"`；
-     单纯改初始值不够，预填表单要走 `handlePresetChange`（`:1614`），
-     需在其定义后加 effect：新建模式（无 `initialData`）时找 name 含 "302" 的
-     preset entry 调 `handlePresetChange(entry.id)`
-   - `src/components/providers/forms/ClaudeDesktopProviderForm.tsx:286`——同样默认 `"custom"`，
-     预填走 `applyDesktopPreset`（`:403`）
-2. **首次启动自动种一条 302.AI 供应商（无 key 占位）**
-   - 机制现成：`src-tauri/src/database/dao/providers_seed.rs`（`OFFICIAL_SEEDS`）+
-     `providers.rs:598` `init_default_official_providers`
-   - ⚠️ 三个坑：
-     a. category 在插入时写死 `"official"`（`providers.rs:632`）——302 应为 `"aggregator"`，
-        需给 `OfficialProviderSeed` 加 category 字段
-     b. 一次性 flag `official_providers_seeded` 在老库（含原版 cc-switch 留下的 `~/.cc-switch`）
-        已置 true——302 种子要用**独立 flag**（如 `ai302_providers_seeded`）才能补种
-     c. `is_official_seed_id` 要把 302 种子也算进去，否则 live 导入会被
-        `has_non_official_seed_provider`（`providers.rs:558`）挡住
-   - 种子配置照抄前端预设：Claude（`env.ANTHROPIC_BASE_URL=https://api.302.ai` + 空
-     `ANTHROPIC_API_KEY`）、Gemini（`GOOGLE_GEMINI_BASE_URL` + `GEMINI_MODEL=gemini-3.5-flash`）、
-     Codex（`generateThirdPartyConfig("302ai", "https://api.302.ai/v1")` 的 TOML）、
-     Claude Desktop 对应预设；icon `ai302`、iconColor `#7C3AED`、website `https://302.ai`
-   - 只种 4 个非 additive app（Claude / ClaudeDesktop / Codex / Gemini）；
-     OpenCode / OpenClaw / Hermes 是 additive 模式不走这套
-3. 完成后：tsc + vitest + cargo test，dev 启动截图验证（截图方案见下）
+1. **添加供应商弹窗默认选中 302.AI**
+   - `ProviderForm.tsx`：在 `handlePresetChange` 定义后加 effect——新建模式（无
+     `initialData`）找 name 含 "302" 的 preset entry 调 `handlePresetChange(entry.id)`。
+     用 `useRef` 按 appId 哨兵保证只触发一次（`handlePresetChange` 未 memo 化也不会循环）。
+     覆盖 6 个 app（claude/codex/gemini/opencode/openclaw/hermes，preset 名均为 "302.AI"）
+   - `ClaudeDesktopProviderForm.tsx`：同款 effect，布尔哨兵（该表单无 appId prop）
+   - 编辑模式尊重 `initialData` 不强行套预设；用户手动切回「自定义」不会被覆盖
+2. **首次启动自动种 302.AI（无 key 占位）**
+   - `providers_seed.rs` 新增 `AI302_SEEDS`（4 条：Claude/ClaudeDesktop/Codex/Gemini），
+     配置逐字段照抄前端预设；icon `ai302`、iconColor `#7C3AED`、website `https://302.ai`
+   - 给种子结构体加 `category` 字段（坑 a）：官方 `"official"` / 302 `"aggregator"`，
+     插入处读 `seed.category` 不再写死
+   - 新增 `init_ai302_providers()` + 独立 flag `ai302_providers_seeded`（坑 b）：
+     老库 `official_providers_seeded` 已 true 也能补种 302；`lib.rs` 启动流程接上
+   - 命名诚实化（坑 c）：`is_official_seed_id` → `is_builtin_seed_id`、
+     `OfficialProviderSeed` → `BuiltinProviderSeed`——结构体同时承载官方+302 两类种子，
+     旧名是谎言；`is_builtin_seed_id` 扫两个数组，302 种子被认作内置，不挡 live 导入
+3. **验证**
+   - `tsc --noEmit` ✓；`vitest` 369/369 ✓；`cargo test` 1774/1774 ✓
+     （含 5 个新种子单测：覆盖范围 / 分类 / 唯一 id / JSON 合法性 / Codex TOML 转义）
+   - dev 启动截图**未做**：`pnpm tauri dev` 二进制链接撞上 cargo 跨 profile 缓存故障
+     （`reqwest required in rlib format`——跑过 `cargo test` 再跑 bin 触发，与本次改动无关），
+     需 `cargo clean` 重编；且截图无辅助功能权限点不进「添加」弹窗，验证不到默认选中。
+     → **前端「默认选中 302」仅靠 code review + tsc；建议主理人点开各 app「添加供应商」肉眼确认**
+   - 已用 `CC_SWITCH_TEST_HOME=/tmp/...` 隔离试跑（构建未通过即止），未触碰真实 `~/.cc-switch`
+
+⚠️ 302 种子相关的两个灰区（属 MEMO 既有的「真 key 实测」待办，非本次回归）：
+- **Codex 种子**：编辑时表单从 TOML 的 `wire_api="responses"` 反推 apiFormat=
+  `openai_responses`，而 302 预设用的是 `openai_chat`（本地 Responses→Chat 转换）。
+  种子只存 TOML 不存 meta，编辑补 key 后保存可能丢掉本地转换 → 拿真 key 验一次
+- **Claude Desktop 种子**：env 留空 `ANTHROPIC_API_KEY`，编辑时表单因 key 为空把
+  apiKeyField 默认成 `ANTHROPIC_AUTH_TOKEN`（后端 `direct_gateway_credentials` 正好要
+  AUTH_TOKEN，反而能跑通）；与预设的 API_KEY 写法不一致 → 同样待真 key 验证
 
 杂项备忘：
-- 终端已有**屏幕录制**权限（全屏 `screencapture -x` 可用），但没有**辅助功能**权限
-  （AppleScript 拿窗口坐标会报 -1719）；单窗口截图用 Swift `CGWindowListCopyWindowInfo`
-  找 window id 再 `screencapture -l<id>`，注意窗口缩到托盘时 onscreen=false 截不到，要先弹出主窗口
-- 主理人机器上 brew 装的原版 cc-switch（`/Applications/CC Switch.app`）常驻后台，
-  和本 fork 共用 `~/.cc-switch`——测试时最好先退掉它，避免互写配置
-- 本 fork 工作树当前有未提交改动：apiKeyUrl 修正（dash.302.ai → 302.ai，7 个预设文件）+ 本 MEMO 更新
+- 隔离试跑用 `CC_SWITCH_TEST_HOME`（`config.rs:23` 专为 CI/本地隔离真实数据而设）
+- brew 原版 cc-switch 仍常驻后台共用 `~/.cc-switch`（实测 16:43 又写了一次）——
+  本 fork 测试一律走隔离目录，不碰真实库
+- 工作树当前未提交改动 = 本次「302 默认化」全部 + 本 MEMO 更新
 
 ### 刻意保留的灰色地带
 
@@ -181,25 +188,55 @@ All 7 tools' preset lists were rewritten to contain only **official + 302.AI**, 
 5. **Model IDs unconfirmed** — presets assume 302 mirrors official IDs (`claude-opus-4-8`, `claude-sonnet-5`, `gpt-5.5`); cross-check against the 302 dashboard model list
 6. **Release pipeline untested** — add `~/.tauri/302-cc-switch.key` to repo secret `TAURI_SIGNING_PRIVATE_KEY`, then tag a test release
 
-### 📌 Next batch: make 302 the default (confirmed 2026-07-09, not started)
+### ✅ Done: make 302 the default (implemented 2026-07-09)
 
-1. **Add-provider dialog should default-select the 302.AI preset** (currently "custom"):
-   `ProviderForm.tsx:304` initial state + trigger `handlePresetChange` (`:1614`) via an effect
-   in create mode; same for `ClaudeDesktopProviderForm.tsx:286` (`applyDesktopPreset` at `:403`)
-2. **Seed a keyless 302.AI provider entry on first launch**: extend
-   `providers_seed.rs` / `init_default_official_providers` (`providers.rs:598`). Three traps:
-   category is hardcoded `"official"` on insert (302 needs `"aggregator"`); the one-shot
-   `official_providers_seeded` flag is already true on old DBs (incl. those left by the
-   original brew cc-switch) so the 302 seeds need their own flag; `is_official_seed_id`
-   must cover the new seeds or live-import gets blocked. Seed only the 4 non-additive
-   apps (Claude / ClaudeDesktop / Codex / Gemini), configs copied from the frontend presets
-3. Then: tsc + vitest + cargo test, dev-launch screenshot to verify
+Both changes shipped; all three traps handled:
 
-Misc: terminal has screen-recording permission but NOT accessibility (single-window capture:
-Swift `CGWindowListCopyWindowInfo` → `screencapture -l<id>`; tray-hidden windows are
-onscreen=false and uncapturable). The brew-installed original CC Switch runs in the background
-sharing `~/.cc-switch` — quit it before testing. Working tree has uncommitted changes:
-apiKeyUrl fix (dash.302.ai → 302.ai) + this memo.
+1. **Add-provider dialog defaults to 302.AI**
+   - `ProviderForm.tsx`: effect placed after `handlePresetChange` — in create mode (no
+     `initialData`) finds the preset whose name contains "302" and calls
+     `handlePresetChange(entry.id)`. A `useRef` guard keyed on appId fires it once (no loop
+     even though `handlePresetChange` isn't memoized). Covers all 6 apps.
+   - `ClaudeDesktopProviderForm.tsx`: same effect, boolean guard (that form has no appId prop).
+   - Edit mode respects `initialData`; a manual switch back to "custom" isn't overridden.
+2. **Seed a keyless 302.AI on first launch**
+   - `providers_seed.rs` adds `AI302_SEEDS` (4: Claude/ClaudeDesktop/Codex/Gemini), configs
+     copied field-for-field from the frontend presets.
+   - Added a `category` field to the seed struct (trap a): "official" / "aggregator"; insert
+     reads `seed.category` instead of hardcoding.
+   - New `init_ai302_providers()` + independent flag `ai302_providers_seeded` (trap b): old DBs
+     where `official_providers_seeded=true` still get 302 seeded; wired into the `lib.rs` startup.
+   - Honest rename (trap c): `is_official_seed_id` → `is_builtin_seed_id`,
+     `OfficialProviderSeed` → `BuiltinProviderSeed` — the struct now holds both official and
+     aggregator seeds, so the old name was a lie. `is_builtin_seed_id` scans both arrays, so
+     302 seeds count as built-in and don't block live import.
+3. **Verification**
+   - `tsc --noEmit` ✓; `vitest` 369/369 ✓; `cargo test` 1774/1774 ✓
+     (5 new seed unit tests: coverage / category / unique ids / JSON validity / Codex TOML escaping)
+   - Dev-launch screenshot **not done**: `pnpm tauri dev` bin linking hit a cargo cross-profile
+     cache glitch (`reqwest required in rlib format` — triggered by running `cargo test` then
+     the bin; unrelated to this change), needs `cargo clean`; and without accessibility
+     permission the "Add" dialog can't be clicked open, so the default-selection can't be
+     screenshotted anyway. → **the frontend default-302 is code-review + tsc only; 主理人
+     should click "Add provider" per app to eyeball it.**
+   - Tried an isolated run via `CC_SWITCH_TEST_HOME` (stopped at the failed build); the real
+     `~/.cc-switch` was never touched.
+
+⚠️ Two gray areas around the 302 seeds (these fall under the memo's existing "real-key test"
+TODOs, not regressions from this batch):
+- **Codex seed**: on edit the form infers apiFormat=`openai_responses` from the TOML's
+  `wire_api="responses"`, whereas the 302 preset uses `openai_chat` (local Responses→Chat
+  conversion). The seed stores only the TOML (no meta), so editing + saving may drop the
+  local conversion → verify with a real key.
+- **Claude Desktop seed**: env holds an empty `ANTHROPIC_API_KEY`, so on edit the form
+  defaults apiKeyField to `ANTHROPIC_AUTH_TOKEN` (which the backend's
+  `direct_gateway_credentials` requires anyway — actually works); inconsistent with the
+  preset's API_KEY style → also pending real-key verification.
+
+Misc: isolated runs use `CC_SWITCH_TEST_HOME` (`config.rs:23`, purpose-built for CI/local
+data isolation). The brew original cc-switch still runs in the background sharing
+`~/.cc-switch` (wrote again at 16:43) — this fork always tests in the isolated dir. Working
+tree uncommitted = this whole "302 default" batch + this memo update.
 
 ### Deliberately kept (gray areas)
 

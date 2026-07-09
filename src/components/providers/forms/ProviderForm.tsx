@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1790,6 +1790,25 @@ function ProviderFormFull({
       iconColor: preset.iconColor ?? "",
     });
   };
+
+  // ── 新建模式默认选中 302.AI ──────────────────────────────────────────
+  // 打开「添加供应商」时不再停在"自定义"，而是自动套用 302.AI 预设。必须走
+  // handlePresetChange 才会回填整张表单（端点 / config / 图标）——单改
+  // selectedPresetId 不触发回填。用 ref 按 appId 记一次：handlePresetChange
+  // 每帧重建也不会反复触发（哨兵使其幂等）。编辑模式尊重已有数据，不套预设。
+  const autoSelected302ForApp = useRef<string | null>(null);
+  useEffect(() => {
+    if (initialData) return;
+    if (autoSelected302ForApp.current === appId) return;
+    const entry = presetEntries.find((e) =>
+      e.preset.name.toLowerCase().includes("302"),
+    );
+    if (!entry) return; // 该 app 无 302 预设时回落到"自定义"
+    autoSelected302ForApp.current = appId;
+    handlePresetChange(entry.id);
+    // handlePresetChange 未 memo 化，靠 ref 哨兵保证只生效一次，故不纳入依赖
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appId, initialData, presetEntries]);
 
   const settingsConfigErrorField = (
     <FormField
