@@ -2463,6 +2463,17 @@ impl ProviderService {
             }
         }
 
+        // Sync to live first (write_gemini_live handles security flag internally
+        // for Gemini). The "current provider" pointers below are the backfill
+        // step's source of truth for "what's actually on disk" on the *next*
+        // switch (see the backfill block above) — if a live write fails and we
+        // had already flipped the pointers, that next switch would backfill the
+        // still-stale live file into the wrong provider's stored settings,
+        // permanently baking the previous provider's routing into it. Writing
+        // live first means a failure here aborts the switch before the pointers
+        // (and therefore the next backfill) can drift from reality.
+        write_live_with_common_config(state.db.as_ref(), &app_type, provider)?;
+
         // Additive mode apps skip setting is_current (no such concept)
         if !app_type.is_additive_mode() {
             // Update local settings (device-level, takes priority)
@@ -2471,9 +2482,6 @@ impl ProviderService {
             // Update database is_current (as default for new devices)
             state.db.set_current_provider(app_type.as_str(), id)?;
         }
-
-        // Sync to live (write_gemini_live handles security flag internally for Gemini)
-        write_live_with_common_config(state.db.as_ref(), &app_type, provider)?;
 
         // Hermes is additive, so "switching" doesn't overwrite a live config file
         // — we instead update the top-level `model:` section to point at this
