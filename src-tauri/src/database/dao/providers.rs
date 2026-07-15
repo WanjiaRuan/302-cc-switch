@@ -726,7 +726,8 @@ impl Database {
 
     /// 补内置卡片缺失的运行时元数据，并把未改动过的旧版单卡名称、网址迁移为
     /// “海外”标识；顺带剥掉旧 Codex 种子钉死的 model = "gpt-5.5" 行（改为自动
-    /// 路由）。用户自行改过的名称、网址、格式和模型值都不覆盖。
+    /// 路由），以及把旧 Codex 种子的通用兼容层地址迁移到 /codex/v1 直连端点。
+    /// 用户自行改过的名称、网址、格式和模型值都不覆盖。
     fn repair_ai302_providers(&self) -> Result<usize, AppError> {
         use crate::app_config::AppType;
         use crate::database::dao::providers_seed::AI302_SEEDS;
@@ -777,6 +778,52 @@ impl Database {
                             .collect();
                         provider.settings_config["config"] =
                             serde_json::Value::String(stripped.join("\n"));
+                        changed = true;
+                    }
+                }
+
+                // 旧版 Codex 种子走通用兼容层（/v1 + openai_chat 本地转换），
+                // 现在切到 302 的 Codex 专用直连端点（/codex/v1 + openai_responses）。
+                // 只迁移与旧默认逐字相同的 base_url 行——用户自定义的地址不碰；
+                // 迁移地址时才顺带升级格式标记（用户显式设置的其他格式不覆盖，
+                // 但旧默认 openai_chat 属于出厂形态，要跟地址一起升级）。
+                let (legacy_base_line, new_base_line) = if seed.id == "ai302-cn-codex" {
+                    (
+                        "base_url = \"https://api.302ai.cn/v1\"",
+                        "base_url = \"https://api.302ai.cn/codex/v1\"",
+                    )
+                } else {
+                    (
+                        "base_url = \"https://api.302.ai/v1\"",
+                        "base_url = \"https://api.302.ai/codex/v1\"",
+                    )
+                };
+                if let Some(config_text) = provider
+                    .settings_config
+                    .get("config")
+                    .and_then(|value| value.as_str())
+                {
+                    if config_text
+                        .lines()
+                        .any(|line| line.trim() == legacy_base_line)
+                    {
+                        let migrated: Vec<String> = config_text
+                            .lines()
+                            .map(|line| {
+                                if line.trim() == legacy_base_line {
+                                    line.replace(legacy_base_line, new_base_line)
+                                } else {
+                                    line.to_string()
+                                }
+                            })
+                            .collect();
+                        provider.settings_config["config"] =
+                            serde_json::Value::String(migrated.join("\n"));
+
+                        let meta = provider.meta.get_or_insert_with(ProviderMeta::default);
+                        if meta.api_format.as_deref() == Some("openai_chat") {
+                            meta.api_format = Some("openai_responses".to_string());
+                        }
                         changed = true;
                     }
                 }
@@ -1047,6 +1094,72 @@ mod ensure_official_seed_tests {
         );
     }
 
+    /// 旧安装的 Codex 种子还是「通用兼容层 + 本地转换」的出厂形态
+    /// （/v1 地址 + openai_chat），repair 要整体迁移到 /codex/v1 直连；
+    /// 用户自定义的地址必须原样保留。
+    #[test]
+    fn ai302_seed_repair_migrates_legacy_codex_endpoint() {
+        let db = Database::memory().expect("memory db");
+        db.init_ai302_providers().expect("seed");
+
+        // 模拟旧机器上的出厂形态：旧地址 + openai_chat + 用户已填的 key
+        let mut provider = db
+            .get_provider_by_id("ai302-codex", AppType::Codex.as_str())
+            .expect("query")
+            .expect("codex seed");
+        provider.settings_config["config"] = serde_json::Value::String(
+            "model_provider = \"custom\"\nmodel_reasoning_effort = \"high\"\ndisable_response_storage = true\n\n[model_providers.custom]\nname = \"302ai\"\nbase_url = \"https://api.302.ai/v1\"\nwire_api = \"responses\"\nrequires_openai_auth = true".to_string(),
+        );
+        provider.settings_config["auth"]["OPENAI_API_KEY"] =
+            serde_json::Value::String("user-key".to_string());
+        provider.meta.as_mut().expect("meta").api_format = Some("openai_chat".to_string());
+        db.save_provider(AppType::Codex.as_str(), &provider)
+            .expect("save legacy shape");
+
+        assert_eq!(db.init_ai302_providers().expect("repair"), 0);
+        let repaired = db
+            .get_provider_by_id("ai302-codex", AppType::Codex.as_str())
+            .expect("query repaired")
+            .expect("repaired provider");
+        let config = repaired.settings_config["config"].as_str().expect("toml");
+        assert!(config.contains("base_url = \"https://api.302.ai/codex/v1\""));
+        assert!(!config.contains("base_url = \"https://api.302.ai/v1\""));
+        assert_eq!(
+            repaired
+                .meta
+                .as_ref()
+                .and_then(|meta| meta.api_format.as_deref()),
+            Some("openai_responses")
+        );
+        assert_eq!(
+            repaired.settings_config["auth"]["OPENAI_API_KEY"].as_str(),
+            Some("user-key")
+        );
+
+        // 用户自定义的地址不是旧默认值，repair 不许碰（格式也保持用户的选择）
+        let mut custom = repaired;
+        custom.settings_config["config"] = serde_json::Value::String(
+            "model_provider = \"custom\"\n\n[model_providers.custom]\nname = \"302ai\"\nbase_url = \"https://my-gateway.example.com/v1\"\nwire_api = \"responses\"".to_string(),
+        );
+        custom.meta.as_mut().expect("meta").api_format = Some("openai_chat".to_string());
+        db.save_provider(AppType::Codex.as_str(), &custom)
+            .expect("save custom endpoint");
+        db.init_ai302_providers().expect("repeat repair");
+
+        let after = db
+            .get_provider_by_id("ai302-codex", AppType::Codex.as_str())
+            .expect("query custom")
+            .expect("custom provider");
+        assert!(after.settings_config["config"]
+            .as_str()
+            .expect("toml")
+            .contains("base_url = \"https://my-gateway.example.com/v1\""));
+        assert_eq!(
+            after.meta.and_then(|meta| meta.api_format),
+            Some("openai_chat".to_string())
+        );
+    }
+
     /// 旧安装的 Codex 种子里钉着 model = "gpt-5.5"，repair 要把这一行剥掉
     /// （改为自动路由），但用户自己改过的模型值必须原样保留。
     #[test]
@@ -1075,7 +1188,8 @@ mod ensure_official_seed_tests {
         let config = repaired.settings_config["config"].as_str().expect("toml");
         assert!(!config.contains("model = \"gpt-5.5\""));
         assert!(config.contains("model_reasoning_effort = \"high\""));
-        assert!(config.contains("base_url = \"https://api.302.ai/v1\""));
+        // 旧默认 base_url 同时被端点迁移升级成 /codex/v1 直连
+        assert!(config.contains("base_url = \"https://api.302.ai/codex/v1\""));
         assert_eq!(
             repaired.settings_config["auth"]["OPENAI_API_KEY"].as_str(),
             Some("user-key")

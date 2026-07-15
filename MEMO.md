@@ -246,10 +246,16 @@
   「需要路由」徽章随之消失）。
 - **连带**：`Ai302KeyDialog` 验证 key 时剥掉 `/codex/v1` 后缀退回通用层（专用端点不提供
   `/models`）；`ai302.ts` 的 codex base URL fallback 同步更新。
-- **旧机器**：老板明确说不管（全员重新下载）。repair 逻辑只补缺失值，旧卡的 `openai_chat` +
-  旧地址原样保留，本地转换代码路径未删，旧安装照常工作。
-- 验证：`tsc --noEmit` ✓；`vitest` 375/375 ✓；`cargo test --lib` 1785/1785 ✓。
+- **存量数据迁移**（同日补）：老板原话「不管旧机器、全员重新下载」——但重装 app 并不会
+  重置 `~/.302-cc-switch` 数据库，主理人本机装了新包后徽章依旧，当场证伪。于是给
+  `repair_ai302_providers` 加了端点迁移：旧 Codex 卡若仍是出厂形态（`/v1` 旧默认地址 +
+  `openai_chat`），启动时整体升级为 `/codex/v1` + `openai_responses`；用户自定义过的
+  地址/格式逐字不匹配旧默认，原样保留（与既有的 model 行剥离迁移同一套路）。
+  本地转换代码路径未删，真正自定义走 chat 格式的卡照常工作。
+- 验证：`tsc --noEmit` ✓；`vitest` 375/375 ✓；`cargo test --lib` 1786/1786（含新迁移测试）✓。
   **真 key 实跑 Codex 未做**（无 key），归入上方「真 key 全链路」待办。
+- ⚠️ 若卡片当前正被使用，迁移只改数据库存档；live `~/.codex/config.toml` 要等用户重新
+  点一次「切换」才会写入新地址。
 
 ### 产品 polish 方向（2026-07-14 讨论）
 
@@ -512,9 +518,17 @@ Responses endpoint and it should be direct:
 - **Fallout handled**: `Ai302KeyDialog` strips the `/codex/v1` suffix before key
   verification (the dedicated endpoint doesn't serve `/models`); the codex base-URL fallback
   in `ai302.ts` updated to match.
-- **Old installs**: boss explicitly said don't bother (everyone re-downloads). The repair
-  logic only fills missing values, so legacy cards keep `openai_chat` + the old base URL, and
-  the local conversion code path stays in place — old installs keep working.
-- Verified: `tsc --noEmit` clean; `vitest` 375/375; `cargo test --lib` 1785/1785.
+- **Existing-data migration** (added same day): the boss had said "ignore old machines,
+  everyone re-downloads" — but reinstalling the app does NOT reset the `~/.302-cc-switch`
+  database; the owner installed the new build and the badge was still there, disproving the
+  plan on the spot. So `repair_ai302_providers` gained an endpoint migration: legacy Codex
+  cards still in factory shape (old `/v1` default base URL + `openai_chat`) get upgraded to
+  `/codex/v1` + `openai_responses` at startup; user-customized URLs/formats don't match the
+  old default verbatim and are left untouched (same pattern as the existing model-pin strip).
+  The local conversion code path remains for genuinely chat-format providers.
+- Verified: `tsc --noEmit` clean; `vitest` 375/375; `cargo test --lib` 1786/1786 (incl. the
+  new migration test).
   **No real-key end-to-end Codex run yet** (no key on hand) — tracked under the existing
   "real-key full-chain" TODO.
+- ⚠️ If the card is currently active, the migration only fixes the DB archive; the live
+  `~/.codex/config.toml` gets the new URL only after the user re-switches to the card.
