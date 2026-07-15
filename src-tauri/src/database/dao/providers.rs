@@ -663,11 +663,9 @@ impl Database {
 
     /// 启动时调用：补齐 302.AI 聚合供应商（无 key 占位）。
     ///
-    /// 用**独立** flag `ai302_providers_seeded`，不复用 `official_providers_seeded`——
-    /// 后者在老库（含原版 cc-switch 留下的 ~/.cc-switch）已置 true，共用会导致 302
-    /// 种子永远补不上。独立 flag 保证全新用户与老用户升级都各补一次；用户删除后
-    /// 不再重建（尊重用户意图）。与 `save_provider` 的 UPSERT 语义配合，重复调用
-    /// 也不会覆盖用户激活的供应商。
+    /// `ai302_regional_providers_seeded` 是国内 / 海外双卡的版本化补种标记。
+    /// 旧版本只有 `ai302_providers_seeded`，所以不能继续用旧标记提前返回，否则升级
+    /// 用户看不到新增的国内卡片。新标记写入后仍只做轻量元数据修复。
     ///
     /// 302 种子 id 全部在 `is_builtin_seed_id` 覆盖范围内，因此不会被
     /// `has_non_official_seed_provider` 当成「用户自建第三方」而挡住 live 导入。
@@ -675,10 +673,10 @@ impl Database {
         use crate::database::dao::providers_seed::AI302_SEEDS;
 
         if self
-            .get_bool_flag("ai302_providers_seeded")
+            .get_bool_flag("ai302_regional_providers_seeded")
             .unwrap_or(false)
         {
-            self.repair_ai302_provider_metadata()?;
+            self.repair_ai302_providers()?;
             return Ok(0);
         }
 
@@ -718,42 +716,79 @@ impl Database {
             log::info!("✓ Seeded 302.AI provider: {} ({})", seed.name, app_type_str);
         }
 
-        // 即使 inserted=0 也置 flag，避免每轮启动都重扫缺失卡片
+        // 兼容仍读取旧标记的历史版本，同时记录双区域卡片已补种。
         self.set_setting("ai302_providers_seeded", "true")?;
-        self.repair_ai302_provider_metadata()?;
+        self.set_setting("ai302_regional_providers_seeded", "true")?;
+        self.repair_ai302_providers()?;
 
         Ok(inserted)
     }
 
-    /// 只补内置卡片缺失的运行时元数据；不覆盖用户已经明确设置的格式。
-    /// 即使 seed flag 已存在也执行，以修复旧版本已经落库的 302 Codex 卡片。
-    fn repair_ai302_provider_metadata(&self) -> Result<usize, AppError> {
+    /// 补内置卡片缺失的运行时元数据，并把未改动过的旧版单卡名称、网址迁移为
+    /// “海外”标识；顺带剥掉旧 Codex 种子钉死的 model = "gpt-5.5" 行（改为自动
+    /// 路由）。用户自行改过的名称、网址、格式和模型值都不覆盖。
+    fn repair_ai302_providers(&self) -> Result<usize, AppError> {
+        use crate::app_config::AppType;
         use crate::database::dao::providers_seed::AI302_SEEDS;
 
         let mut repaired = 0_usize;
         for seed in AI302_SEEDS {
-            let Some(api_format) = seed.api_format else {
-                continue;
-            };
             let app_type = seed.app_type.as_str();
             let Some(mut provider) = self.get_provider_by_id(seed.id, app_type)? else {
                 continue;
             };
-            let meta = provider.meta.get_or_insert_with(ProviderMeta::default);
-            if meta
-                .api_format
-                .as_deref()
-                .is_some_and(|value| !value.trim().is_empty())
-            {
-                continue;
+            let mut changed = false;
+
+            if provider.name == "302.AI" {
+                provider.name = seed.name.to_string();
+                changed = true;
+            }
+            if provider.website_url.as_deref() == Some("https://302.ai") {
+                provider.website_url = Some(seed.website_url.to_string());
+                changed = true;
             }
 
-            meta.api_format = Some(api_format.to_string());
-            self.save_provider(app_type, &provider)?;
-            repaired += 1;
+            if let Some(api_format) = seed.api_format {
+                let meta = provider.meta.get_or_insert_with(ProviderMeta::default);
+                if !meta
+                    .api_format
+                    .as_deref()
+                    .is_some_and(|value| !value.trim().is_empty())
+                {
+                    meta.api_format = Some(api_format.to_string());
+                    changed = true;
+                }
+            }
+
+            // 旧版 Codex 种子钉死了 model = "gpt-5.5"，现在默认改为自动路由
+            // （不写 model 行，跟随客户端按任务自选）。只剥掉与旧默认逐字相同
+            // 的那一行——用户自己改过的模型值不匹配，原样保留。
+            if seed.app_type == AppType::Codex {
+                let legacy_line = "model = \"gpt-5.5\"";
+                if let Some(config_text) = provider
+                    .settings_config
+                    .get("config")
+                    .and_then(|value| value.as_str())
+                {
+                    if config_text.lines().any(|line| line.trim() == legacy_line) {
+                        let stripped: Vec<&str> = config_text
+                            .lines()
+                            .filter(|line| line.trim() != legacy_line)
+                            .collect();
+                        provider.settings_config["config"] =
+                            serde_json::Value::String(stripped.join("\n"));
+                        changed = true;
+                    }
+                }
+            }
+
+            if changed {
+                self.save_provider(app_type, &provider)?;
+                repaired += 1;
+            }
         }
         if repaired > 0 {
-            log::info!("✓ Repaired metadata for {repaired} 302.AI provider(s)");
+            log::info!("✓ Repaired {repaired} 302.AI provider(s)");
         }
         Ok(repaired)
     }
@@ -896,7 +931,7 @@ mod ensure_official_seed_tests {
     #[test]
     fn ai302_codex_seed_sets_chat_format_metadata() {
         let db = Database::memory().expect("memory db");
-        assert_eq!(db.init_ai302_providers().expect("seed"), 4);
+        assert_eq!(db.init_ai302_providers().expect("seed"), 8);
 
         let provider = db
             .get_provider_by_id("ai302-codex", AppType::Codex.as_str())
@@ -906,6 +941,60 @@ mod ensure_official_seed_tests {
             provider.meta.and_then(|meta| meta.api_format),
             Some("openai_chat".to_string())
         );
+
+        let domestic = db
+            .get_provider_by_id("ai302-cn-codex", AppType::Codex.as_str())
+            .expect("query")
+            .expect("domestic codex seed");
+        assert_eq!(domestic.name, "302.AI（国内）");
+        assert_eq!(
+            domestic.website_url.as_deref(),
+            Some("https://api.302ai.cn")
+        );
+        assert_eq!(
+            domestic.meta.and_then(|meta| meta.api_format),
+            Some("openai_chat".to_string())
+        );
+    }
+
+    #[test]
+    fn ai302_regional_seed_flag_upgrades_legacy_installations() {
+        let db = Database::memory().expect("memory db");
+        db.set_setting("ai302_providers_seeded", "true")
+            .expect("set legacy flag");
+
+        assert_eq!(db.init_ai302_providers().expect("regional upgrade"), 8);
+        assert!(db
+            .get_provider_by_id("ai302-cn-claude", AppType::Claude.as_str())
+            .expect("query domestic provider")
+            .is_some());
+        assert!(db
+            .get_bool_flag("ai302_regional_providers_seeded")
+            .expect("read regional flag"));
+        assert_eq!(db.init_ai302_providers().expect("repeat init"), 0);
+    }
+
+    #[test]
+    fn ai302_seed_repair_labels_legacy_overseas_cards() {
+        let db = Database::memory().expect("memory db");
+        db.init_ai302_providers().expect("seed");
+
+        let mut provider = db
+            .get_provider_by_id("ai302-claude", AppType::Claude.as_str())
+            .expect("query")
+            .expect("overseas seed");
+        provider.name = "302.AI".to_string();
+        provider.website_url = Some("https://302.ai".to_string());
+        db.save_provider(AppType::Claude.as_str(), &provider)
+            .expect("save legacy card");
+
+        assert_eq!(db.init_ai302_providers().expect("repair"), 0);
+        let repaired = db
+            .get_provider_by_id("ai302-claude", AppType::Claude.as_str())
+            .expect("query repaired")
+            .expect("repaired overseas seed");
+        assert_eq!(repaired.name, "302.AI（海外）");
+        assert_eq!(repaired.website_url.as_deref(), Some("https://api.302.ai"));
     }
 
     #[test]
@@ -955,5 +1044,58 @@ mod ensure_official_seed_tests {
             Some("openai_responses".to_string()),
             "explicit user format must not be overwritten"
         );
+    }
+
+    /// 旧安装的 Codex 种子里钉着 model = "gpt-5.5"，repair 要把这一行剥掉
+    /// （改为自动路由），但用户自己改过的模型值必须原样保留。
+    #[test]
+    fn ai302_seed_repair_strips_legacy_codex_model_pin() {
+        let db = Database::memory().expect("memory db");
+        db.init_ai302_providers().expect("seed");
+
+        // 模拟旧版种子形态：config 里带旧默认 model 行 + 用户已填的 key
+        let mut provider = db
+            .get_provider_by_id("ai302-codex", AppType::Codex.as_str())
+            .expect("query")
+            .expect("codex seed");
+        let legacy_config = "model_provider = \"custom\"\nmodel = \"gpt-5.5\"\nmodel_reasoning_effort = \"high\"\ndisable_response_storage = true\n\n[model_providers.custom]\nname = \"302ai\"\nbase_url = \"https://api.302.ai/v1\"\nwire_api = \"responses\"\nrequires_openai_auth = true";
+        provider.settings_config["config"] =
+            serde_json::Value::String(legacy_config.to_string());
+        provider.settings_config["auth"]["OPENAI_API_KEY"] =
+            serde_json::Value::String("user-key".to_string());
+        db.save_provider(AppType::Codex.as_str(), &provider)
+            .expect("save legacy shape");
+
+        assert_eq!(db.init_ai302_providers().expect("repair"), 0);
+        let repaired = db
+            .get_provider_by_id("ai302-codex", AppType::Codex.as_str())
+            .expect("query repaired")
+            .expect("repaired provider");
+        let config = repaired.settings_config["config"].as_str().expect("toml");
+        assert!(!config.contains("model = \"gpt-5.5\""));
+        assert!(config.contains("model_reasoning_effort = \"high\""));
+        assert!(config.contains("base_url = \"https://api.302.ai/v1\""));
+        assert_eq!(
+            repaired.settings_config["auth"]["OPENAI_API_KEY"].as_str(),
+            Some("user-key")
+        );
+
+        // 用户自己钉的模型不是旧默认值，repair 不许碰
+        let mut custom = repaired;
+        custom.settings_config["config"] = serde_json::Value::String(
+            "model_provider = \"custom\"\nmodel = \"gpt-5.6-sol\"\n\n[model_providers.custom]\nname = \"302ai\"\nbase_url = \"https://api.302.ai/v1\"".to_string(),
+        );
+        db.save_provider(AppType::Codex.as_str(), &custom)
+            .expect("save custom model");
+        db.init_ai302_providers().expect("repeat repair");
+
+        let after = db
+            .get_provider_by_id("ai302-codex", AppType::Codex.as_str())
+            .expect("query custom")
+            .expect("custom provider");
+        assert!(after.settings_config["config"]
+            .as_str()
+            .expect("toml")
+            .contains("model = \"gpt-5.6-sol\""));
     }
 }

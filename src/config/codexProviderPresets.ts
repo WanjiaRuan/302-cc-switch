@@ -49,17 +49,20 @@ export function generateThirdPartyAuth(apiKey: string): Record<string, any> {
 
 /**
  * 生成第三方供应商的 config.toml
+ *
+ * modelName 传 null = 不写 model 行（自动路由）：Codex 客户端按任务自选模型，
+ * 请求原样发给上游。传字符串则钉死默认模型。
  */
 export function generateThirdPartyConfig(
   providerName: string,
   baseUrl: string,
-  modelName = "gpt-5.5",
+  modelName: string | null = "gpt-5.5",
 ): string {
   const tomlString = (value: string) => JSON.stringify(value);
+  const modelLine = modelName ? `model = ${tomlString(modelName)}\n` : "";
 
   return `model_provider = "custom"
-model = ${tomlString(modelName)}
-model_reasoning_effort = "high"
+${modelLine}model_reasoning_effort = "high"
 disable_response_storage = true
 
 [model_providers.custom]
@@ -121,16 +124,15 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     // 302.AI 的 OpenAI 兼容层：把 api.openai.com 换成 api.302.ai 即可。
     // 走 openai_chat（本地 Responses→Chat 转换），因为 302 官方示例只承诺
     // /v1/chat/completions；国内节点 api.302ai.cn 在地址管理里可切换。
+    // 不钉 model、不带 modelCatalog = 自动路由：Codex 保留自己的模型列表，
+    // 按任务自选（sol / mini 等），302 按实际收到的模型 id 计费。
     name: "302.AI",
     websiteUrl: "https://302.ai",
     apiKeyUrl: "https://302.ai",
     auth: generateThirdPartyAuth(""),
-    config: generateThirdPartyConfig("302ai", "https://api.302.ai/v1"),
+    config: generateThirdPartyConfig("302ai", "https://api.302.ai/v1", null),
     endpointCandidates: ["https://api.302.ai/v1", "https://api.302ai.cn/v1"],
     apiFormat: "openai_chat",
-    modelCatalog: modelCatalog([
-      { model: "gpt-5.5", displayName: "GPT-5.5", contextWindow: 400000 },
-    ]),
     category: "aggregator",
     icon: "ai302",
     iconColor: "#7C3AED",

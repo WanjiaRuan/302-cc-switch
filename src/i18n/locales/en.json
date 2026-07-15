@@ -2974,7 +2974,8 @@
     "diagnoseAgain": "Run diagnosis again",
     "skip": "Skip for now",
     "start": "Start setup",
-    "enterApp": "Enter 302 CC Switch"
+    "enterApp": "Enter 302 CC Switch",
+    "autoRouting": "Auto routing"
   },
   "ai302": {
     "dialogTitle": "302.AI API Key",
@@ -2988,10 +2989,10 @@
     "verifyFailKey": "Key is invalid or expired",
     "verifyFailNetwork": "Can't reach 302.AI. Check your network and retry.",
     "modelStrategyTitle": "Model strategy",
-    "modelStrategyFollow": "Follow {{client}}. The client-selected model ID is sent to 302.AI unchanged.",
+    "modelStrategyFollow": "Auto routing: follows {{client}}, which picks the model per task; requests are sent to 302.AI unchanged.",
     "modelStrategyFixed": "Fixed models",
-    "modelStrategyFollowShort": "The client-selected model ID is sent to 302.AI unchanged",
-    "modelStrategyCardFollow": "Model: follow {{client}} (pass through)",
+    "modelStrategyFollowShort": "Auto routing: the client picks the model per task and sends it to 302.AI unchanged",
+    "modelStrategyCardFollow": "Model: auto routing (follows {{client}})",
     "modelStrategyCardFixed": "Model: {{models}}",
     "defaultModel": "Default",
     "technicalDetails": "Technical details",

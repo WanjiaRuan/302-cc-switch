@@ -2,7 +2,8 @@
 //!
 //! 启动时调用 `Database::init_default_official_providers` /
 //! `Database::init_ai302_providers` 把这些条目写入 `providers` 表，让所有用户
-//! 开箱即看到「官方 + 302.AI」两条默认供应商（后者无 key 占位，需用户补填）。
+//! 开箱即看到「官方 + 302.AI 海外 + 302.AI 国内」默认供应商
+//! （两个 302.AI 节点都没有 key 占位，需用户补填）。
 //!
 //! 字段与前端预设保持一致，参见：
 //! - `src/config/claudeProviderPresets.ts`（"Claude Official" / "302.AI"）
@@ -89,12 +90,11 @@ pub(crate) const OFFICIAL_SEEDS: &[BuiltinProviderSeed] = &[
     },
 ];
 
-/// 302.AI 聚合层种子（无 key 占位）。
+/// 302.AI 国内 / 海外聚合层种子（无 key 占位）。
 ///
 /// 只覆盖 4 个非 additive app（additive 的 opencode/openclaw/hermes 走 live 同步，
-/// 不走启动种子）。settings_config 严格照抄对应前端预设：Claude/Gemini/Codex 的
-/// env/TOML 与 `src/config/*ProviderPresets.ts` 里 "302.AI" 条目逐字段对齐；
-/// Claude Desktop 与前端保存后的 env 形态一致（直连模式，api.302.ai，空 key）。
+/// 不走启动种子）。海外卡沿用对应前端预设的配置形态，国内卡只替换节点域名；
+/// Claude Desktop 与前端保存后的 env 形态一致（直连模式，空 key）。
 ///
 /// ⚠️ key 字段为空，仅为占位；用户需编辑补填真实 302 API Key 后再切换。
 /// Claude Desktop 新配置统一写 AUTH_TOKEN；读取层继续兼容历史 API_KEY。
@@ -102,8 +102,8 @@ pub(crate) const AI302_SEEDS: &[BuiltinProviderSeed] = &[
     BuiltinProviderSeed {
         id: "ai302-claude",
         app_type: AppType::Claude,
-        name: "302.AI",
-        website_url: "https://302.ai",
+        name: "302.AI（海外）",
+        website_url: "https://api.302.ai",
         icon: "ai302",
         icon_color: "#7C3AED",
         category: "aggregator",
@@ -114,8 +114,8 @@ pub(crate) const AI302_SEEDS: &[BuiltinProviderSeed] = &[
     BuiltinProviderSeed {
         id: "ai302-claude-desktop",
         app_type: AppType::ClaudeDesktop,
-        name: "302.AI",
-        website_url: "https://302.ai",
+        name: "302.AI（海外）",
+        website_url: "https://api.302.ai",
         icon: "ai302",
         icon_color: "#7C3AED",
         category: "aggregator",
@@ -126,27 +126,73 @@ pub(crate) const AI302_SEEDS: &[BuiltinProviderSeed] = &[
     BuiltinProviderSeed {
         id: "ai302-codex",
         app_type: AppType::Codex,
-        name: "302.AI",
-        website_url: "https://302.ai",
+        name: "302.AI（海外）",
+        website_url: "https://api.302.ai",
         icon: "ai302",
         icon_color: "#7C3AED",
         category: "aggregator",
         // config.toml 等价于前端 generateThirdPartyConfig("302ai", "https://api.302.ai/v1")
         // 的输出；wire_api="responses" 是 Codex 本地协议，api_format 则声明 302 上游
         // 使用 Chat Completions，二者共同启用本地 Responses→Chat 转换。
-        settings_config_json: r#"{"auth":{"OPENAI_API_KEY":""},"config":"model_provider = \"custom\"\nmodel = \"gpt-5.5\"\nmodel_reasoning_effort = \"high\"\ndisable_response_storage = true\n\n[model_providers.custom]\nname = \"302ai\"\nbase_url = \"https://api.302.ai/v1\"\nwire_api = \"responses\"\nrequires_openai_auth = true"}"#,
+        // 不写 model 行 = 自动路由：跟随 Codex 客户端按任务自选模型（sol / mini 等），
+        // 302 按实际收到的模型 id 计费。钉死 gpt-5.5 会和真实调用对不上。
+        settings_config_json: r#"{"auth":{"OPENAI_API_KEY":""},"config":"model_provider = \"custom\"\nmodel_reasoning_effort = \"high\"\ndisable_response_storage = true\n\n[model_providers.custom]\nname = \"302ai\"\nbase_url = \"https://api.302.ai/v1\"\nwire_api = \"responses\"\nrequires_openai_auth = true"}"#,
         api_format: Some("openai_chat"),
     },
     BuiltinProviderSeed {
         id: "ai302-gemini",
         app_type: AppType::Gemini,
-        name: "302.AI",
-        website_url: "https://302.ai",
+        name: "302.AI（海外）",
+        website_url: "https://api.302.ai",
         icon: "ai302",
         icon_color: "#7C3AED",
         category: "aggregator",
         // 与其他中转商的 Gemini 原生透传写法一致：根域名 + 模型名
         settings_config_json: r#"{"env":{"GOOGLE_GEMINI_BASE_URL":"https://api.302.ai","GEMINI_MODEL":"gemini-3.5-flash"},"config":{}}"#,
+        api_format: None,
+    },
+    BuiltinProviderSeed {
+        id: "ai302-cn-claude",
+        app_type: AppType::Claude,
+        name: "302.AI（国内）",
+        website_url: "https://api.302ai.cn",
+        icon: "ai302",
+        icon_color: "#7C3AED",
+        category: "aggregator",
+        settings_config_json: r#"{"env":{"ANTHROPIC_BASE_URL":"https://api.302ai.cn","ANTHROPIC_API_KEY":""}}"#,
+        api_format: None,
+    },
+    BuiltinProviderSeed {
+        id: "ai302-cn-claude-desktop",
+        app_type: AppType::ClaudeDesktop,
+        name: "302.AI（国内）",
+        website_url: "https://api.302ai.cn",
+        icon: "ai302",
+        icon_color: "#7C3AED",
+        category: "aggregator",
+        settings_config_json: r#"{"env":{"ANTHROPIC_BASE_URL":"https://api.302ai.cn","ANTHROPIC_AUTH_TOKEN":""}}"#,
+        api_format: None,
+    },
+    BuiltinProviderSeed {
+        id: "ai302-cn-codex",
+        app_type: AppType::Codex,
+        name: "302.AI（国内）",
+        website_url: "https://api.302ai.cn",
+        icon: "ai302",
+        icon_color: "#7C3AED",
+        category: "aggregator",
+        settings_config_json: r#"{"auth":{"OPENAI_API_KEY":""},"config":"model_provider = \"custom\"\nmodel_reasoning_effort = \"high\"\ndisable_response_storage = true\n\n[model_providers.custom]\nname = \"302ai-cn\"\nbase_url = \"https://api.302ai.cn/v1\"\nwire_api = \"responses\"\nrequires_openai_auth = true"}"#,
+        api_format: Some("openai_chat"),
+    },
+    BuiltinProviderSeed {
+        id: "ai302-cn-gemini",
+        app_type: AppType::Gemini,
+        name: "302.AI（国内）",
+        website_url: "https://api.302ai.cn",
+        icon: "ai302",
+        icon_color: "#7C3AED",
+        category: "aggregator",
+        settings_config_json: r#"{"env":{"GOOGLE_GEMINI_BASE_URL":"https://api.302ai.cn","GEMINI_MODEL":"gemini-3.5-flash"},"config":{}}"#,
         api_format: None,
     },
 ];
@@ -181,15 +227,26 @@ mod tests {
         assert!(is_builtin_seed_id(CLAUDE_DESKTOP_OFFICIAL_PROVIDER_ID));
     }
 
-    /// 302 种子覆盖 4 个非 additive app，且每个 app 恰好一条。
+    /// 302 种子覆盖 4 个非 additive app，且每个 app 恰好有国内、海外两条。
     #[test]
     fn ai302_seeds_cover_four_non_additive_apps() {
         let app_types: Vec<AppType> = AI302_SEEDS.iter().map(|s| s.app_type.clone()).collect();
-        assert_eq!(AI302_SEEDS.len(), 4, "exactly 4 ai302 seeds");
-        assert!(app_types.contains(&AppType::Claude));
-        assert!(app_types.contains(&AppType::ClaudeDesktop));
-        assert!(app_types.contains(&AppType::Codex));
-        assert!(app_types.contains(&AppType::Gemini));
+        assert_eq!(AI302_SEEDS.len(), 8, "exactly 8 regional ai302 seeds");
+        for app_type in [
+            AppType::Claude,
+            AppType::ClaudeDesktop,
+            AppType::Codex,
+            AppType::Gemini,
+        ] {
+            assert_eq!(
+                app_types
+                    .iter()
+                    .filter(|candidate| **candidate == app_type)
+                    .count(),
+                2,
+                "{app_type:?} should have domestic and overseas seeds"
+            );
+        }
         // 不应误种 additive app
         assert!(!app_types.contains(&AppType::OpenCode));
     }
@@ -202,9 +259,32 @@ mod tests {
                 "{} should be a builtin seed id",
                 seed.id
             );
+            assert!(
+                is_ai302_seed_id(seed.id),
+                "{} should be a protected 302.AI seed id",
+                seed.id
+            );
             assert_eq!(seed.category, "aggregator", "{} category", seed.id);
             assert_eq!(seed.icon, "ai302", "{} icon", seed.id);
             assert_eq!(seed.icon_color, "#7C3AED", "{} icon_color", seed.id);
+        }
+    }
+
+    #[test]
+    fn ai302_seeds_label_and_route_both_regions() {
+        for seed in AI302_SEEDS {
+            let config: serde_json::Value =
+                serde_json::from_str(seed.settings_config_json).expect("seed config");
+            let serialized = config.to_string();
+            if seed.id.starts_with("ai302-cn-") {
+                assert_eq!(seed.name, "302.AI（国内）");
+                assert_eq!(seed.website_url, "https://api.302ai.cn");
+                assert!(serialized.contains("api.302ai.cn"), "{} endpoint", seed.id);
+            } else {
+                assert_eq!(seed.name, "302.AI（海外）");
+                assert_eq!(seed.website_url, "https://api.302.ai");
+                assert!(serialized.contains("api.302.ai"), "{} endpoint", seed.id);
+            }
         }
     }
 
@@ -237,9 +317,25 @@ mod tests {
         let toml = config["config"].as_str().expect("codex config string");
         assert!(toml.contains("wire_api = \"responses\""));
         assert!(toml.contains("base_url = \"https://api.302.ai/v1\""));
-        assert!(toml.contains("model = \"gpt-5.5\""));
+        // 自动路由：种子不得钉死 model，Codex 客户端按任务自选
+        assert!(!toml.contains("\nmodel = "));
+        assert!(!toml.starts_with("model = "));
+        assert!(toml.contains("model_reasoning_effort = \"high\""));
         assert_eq!(config["auth"]["OPENAI_API_KEY"].as_str(), Some(""));
         assert_eq!(codex.api_format, Some("openai_chat"));
+
+        let domestic_codex = AI302_SEEDS
+            .iter()
+            .find(|s| s.id == "ai302-cn-codex")
+            .expect("ai302-cn-codex seed");
+        let domestic_config =
+            serde_json::from_str::<serde_json::Value>(domestic_codex.settings_config_json)
+                .expect("domestic codex json");
+        let domestic_toml = domestic_config["config"]
+            .as_str()
+            .expect("domestic codex config string");
+        assert!(domestic_toml.contains("base_url = \"https://api.302ai.cn/v1\""));
+        assert_eq!(domestic_codex.api_format, Some("openai_chat"));
 
         let desktop = AI302_SEEDS
             .iter()

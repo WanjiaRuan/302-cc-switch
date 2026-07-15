@@ -925,7 +925,10 @@ export function FirstRunNoticeDialog() {
                           : t("onboarding.customMapping", {
                               defaultValue: "自定义映射",
                             })
-                        : ai302OnboardingDefaultModel(appId)}
+                        : ai302OnboardingDefaultModel(appId) ||
+                          t("onboarding.autoRouting", {
+                            defaultValue: "自动路由",
+                          })}
                     </span>
                   </div>
                 ))}

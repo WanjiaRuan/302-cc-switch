@@ -480,7 +480,8 @@ export function ProviderCard({
                 title={
                   ai302ModelStrategy.mode === "follow"
                     ? t("ai302.modelStrategyFollowShort", {
-                        defaultValue: "客户端选择的模型 ID 会原样发送给 302.AI",
+                        defaultValue:
+                          "自动路由：客户端按任务自动选择模型，原样发送给 302.AI",
                       })
                     : ai302ModelStrategy.mappings
                         .map((item) => `${item.role}: ${item.model}`)
@@ -501,7 +502,7 @@ export function ProviderCard({
                                 : appId === "gemini"
                                   ? "Gemini CLI"
                                   : appId,
-                        defaultValue: "模型：跟随 {{client}}（原样转发）",
+                        defaultValue: "模型：自动路由（跟随 {{client}}）",
                       })
                     : t("ai302.modelStrategyCardFixed", {
                         models: ai302ModelStrategy.mappings

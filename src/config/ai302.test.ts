@@ -95,4 +95,17 @@ describe("ai302 config helpers", () => {
       mappings: [{ role: "default", model: "gpt-5.5" }],
     });
   });
+
+  // 302 预设的默认形态：不写 model 行 = 自动路由（跟随 Codex 客户端）
+  it("reports Codex auto-routing when no model line is pinned", () => {
+    const config = {
+      config:
+        'model_provider = "custom"\nmodel_reasoning_effort = "high"\n\n[model_providers.custom]\nbase_url = "https://api.302.ai/v1"',
+    };
+
+    expect(getAi302ModelStrategy("codex", config)).toEqual({
+      mode: "follow",
+      mappings: [],
+    });
+  });
 });

@@ -2974,7 +2974,8 @@
     "diagnoseAgain": "重新运行一键诊断",
     "skip": "暂时跳过",
     "start": "开始配置",
-    "enterApp": "进入 302 CC Switch"
+    "enterApp": "进入 302 CC Switch",
+    "autoRouting": "自动路由"
   },
   "ai302": {
     "dialogTitle": "302.AI API Key",
@@ -2988,10 +2989,10 @@
     "verifyFailKey": "Key 无效或已过期",
     "verifyFailNetwork": "连不上 302.AI，请检查网络后重试",
     "modelStrategyTitle": "模型策略",
-    "modelStrategyFollow": "跟随 {{client}}，客户端选择的模型 ID 会原样发送给 302.AI。",
+    "modelStrategyFollow": "自动路由：跟随 {{client}}，按任务自动选择模型，请求原样发送给 302.AI。",
     "modelStrategyFixed": "已固定模型",
-    "modelStrategyFollowShort": "客户端选择的模型 ID 会原样发送给 302.AI",
-    "modelStrategyCardFollow": "模型：跟随 {{client}}（原样转发）",
+    "modelStrategyFollowShort": "自动路由：客户端按任务自动选择模型，原样发送给 302.AI",
+    "modelStrategyCardFollow": "模型：自动路由（跟随 {{client}}）",
     "modelStrategyCardFixed": "模型：{{models}}",
     "defaultModel": "默认",
     "technicalDetails": "技术详情",

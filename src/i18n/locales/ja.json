@@ -2974,7 +2974,8 @@
     "diagnoseAgain": "診断を再実行",
     "skip": "今はスキップ",
     "start": "設定を開始",
-    "enterApp": "302 CC Switch を開く"
+    "enterApp": "302 CC Switch を開く",
+    "autoRouting": "自動ルーティング"
   },
   "ai302": {
     "dialogTitle": "302.AI API Key",
@@ -2988,10 +2989,10 @@
     "verifyFailKey": "Key が無効か期限切れです",
     "verifyFailNetwork": "302.AI に接続できません。ネットワークを確認して再試行してください",
     "modelStrategyTitle": "モデル戦略",
-    "modelStrategyFollow": "{{client}} に追従し、クライアントが選んだモデル ID を変更せず 302.AI に送信します。",
+    "modelStrategyFollow": "自動ルーティング：{{client}} に追従し、タスクごとにモデルを自動選択。リクエストは変更せず 302.AI に送信します。",
     "modelStrategyFixed": "固定モデル",
-    "modelStrategyFollowShort": "クライアントが選んだモデル ID を変更せず 302.AI に送信します",
-    "modelStrategyCardFollow": "モデル：{{client}} に追従（そのまま転送）",
+    "modelStrategyFollowShort": "自動ルーティング：クライアントがタスクごとにモデルを自動選択し、そのまま 302.AI に送信します",
+    "modelStrategyCardFollow": "モデル：自動ルーティング（{{client}} に追従）",
     "modelStrategyCardFixed": "モデル：{{models}}",
     "defaultModel": "デフォルト",
     "technicalDetails": "技術情報",

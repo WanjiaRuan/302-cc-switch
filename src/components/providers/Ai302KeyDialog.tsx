@@ -246,7 +246,7 @@ export function Ai302KeyDialog({
                   <p className="text-xs leading-relaxed text-muted-foreground">
                     {t("ai302.modelStrategyFollow", {
                       client: clientName,
-                      defaultValue: `跟随 ${clientName}，客户端选择的模型 ID 会原样发送给 302.AI。`,
+                      defaultValue: `自动路由：跟随 ${clientName}，按任务自动选择模型，请求原样发送给 302.AI。`,
                     })}
                   </p>
                 ) : (
