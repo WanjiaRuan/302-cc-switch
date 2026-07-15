@@ -130,7 +130,11 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     websiteUrl: "https://302.ai",
     apiKeyUrl: "https://302.ai",
     auth: generateThirdPartyAuth(""),
-    config: generateThirdPartyConfig("302ai", "https://api.302.ai/codex/v1", null),
+    config: generateThirdPartyConfig(
+      "302ai",
+      "https://api.302.ai/codex/v1",
+      null,
+    ),
     endpointCandidates: [
       "https://api.302.ai/codex/v1",
       "https://api.302ai.cn/codex/v1",

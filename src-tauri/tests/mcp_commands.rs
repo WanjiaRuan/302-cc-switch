@@ -95,7 +95,10 @@ fn import_default_config_claude_official_login_skips_default() {
 
     let imported = import_default_config_test_hook(&state, AppType::Claude)
         .expect("import should succeed as a no-op");
-    assert!(!imported, "official login must not create a default provider");
+    assert!(
+        !imported,
+        "official login must not create a default provider"
+    );
 
     let providers = state
         .db

@@ -1173,8 +1173,7 @@ mod ensure_official_seed_tests {
             .expect("query")
             .expect("codex seed");
         let legacy_config = "model_provider = \"custom\"\nmodel = \"gpt-5.5\"\nmodel_reasoning_effort = \"high\"\ndisable_response_storage = true\n\n[model_providers.custom]\nname = \"302ai\"\nbase_url = \"https://api.302.ai/v1\"\nwire_api = \"responses\"\nrequires_openai_auth = true";
-        provider.settings_config["config"] =
-            serde_json::Value::String(legacy_config.to_string());
+        provider.settings_config["config"] = serde_json::Value::String(legacy_config.to_string());
         provider.settings_config["auth"]["OPENAI_API_KEY"] =
             serde_json::Value::String("user-key".to_string());
         db.save_provider(AppType::Codex.as_str(), &provider)
