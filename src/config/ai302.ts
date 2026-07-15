@@ -47,6 +47,12 @@ export function readAi302ApiKey(
     return typeof auth?.OPENAI_API_KEY === "string" ? auth.OPENAI_API_KEY : "";
   }
   const env = config.env as Record<string, unknown> | undefined;
+  if (appId === "claude-desktop") {
+    const authToken = env?.ANTHROPIC_AUTH_TOKEN;
+    if (typeof authToken === "string" && authToken.trim()) return authToken;
+    const legacyApiKey = env?.ANTHROPIC_API_KEY;
+    return typeof legacyApiKey === "string" ? legacyApiKey : "";
+  }
   const field = appId === "gemini" ? "GEMINI_API_KEY" : "ANTHROPIC_API_KEY";
   return typeof env?.[field] === "string" ? (env[field] as string) : "";
 }
@@ -61,6 +67,14 @@ export function writeAi302ApiKey(
     return { ...config, auth: { ...auth, OPENAI_API_KEY: key } };
   }
   const env = (config.env ?? {}) as Record<string, unknown>;
+  if (appId === "claude-desktop") {
+    const nextEnv: Record<string, unknown> = {
+      ...env,
+      ANTHROPIC_AUTH_TOKEN: key,
+    };
+    delete nextEnv.ANTHROPIC_API_KEY;
+    return { ...config, env: nextEnv };
+  }
   const field = appId === "gemini" ? "GEMINI_API_KEY" : "ANTHROPIC_API_KEY";
   return { ...config, env: { ...env, [field]: key } };
 }

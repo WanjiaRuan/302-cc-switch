@@ -124,7 +124,7 @@ impl Database {
         conn.execute("CREATE TABLE IF NOT EXISTS proxy_config (
             app_type TEXT PRIMARY KEY CHECK (app_type IN ('claude','codex','gemini')),
             proxy_enabled INTEGER NOT NULL DEFAULT 0, listen_address TEXT NOT NULL DEFAULT '127.0.0.1',
-            listen_port INTEGER NOT NULL DEFAULT 15721, enable_logging INTEGER NOT NULL DEFAULT 1,
+            listen_port INTEGER NOT NULL DEFAULT 30221, enable_logging INTEGER NOT NULL DEFAULT 1,
             enabled INTEGER NOT NULL DEFAULT 0, auto_failover_enabled INTEGER NOT NULL DEFAULT 0,
             max_retries INTEGER NOT NULL DEFAULT 3, streaming_first_byte_timeout INTEGER NOT NULL DEFAULT 60,
             streaming_idle_timeout INTEGER NOT NULL DEFAULT 120, non_streaming_timeout INTEGER NOT NULL DEFAULT 600,
@@ -340,7 +340,7 @@ impl Database {
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE proxy_config ADD COLUMN listen_port INTEGER NOT NULL DEFAULT 15721",
+            "ALTER TABLE proxy_config ADD COLUMN listen_port INTEGER NOT NULL DEFAULT 30221",
             [],
         );
         let _ = conn.execute(
@@ -478,6 +478,11 @@ impl Database {
                         Self::migrate_v11_to_v12(conn)?;
                         Self::set_user_version(conn, 12)?;
                     }
+                    12 => {
+                        log::info!("迁移数据库从 v12 到 v13（隔离 302 默认代理端口）");
+                        Self::migrate_v12_to_v13(conn)?;
+                        Self::set_user_version(conn, 13)?;
+                    }
                     _ => {
                         return Err(AppError::Database(format!(
                             "未知的数据库版本 {version}，无法迁移到 {SCHEMA_VERSION}"
@@ -601,7 +606,7 @@ impl Database {
                 conn,
                 "proxy_config",
                 "listen_port",
-                "INTEGER NOT NULL DEFAULT 15721",
+                "INTEGER NOT NULL DEFAULT 30221",
             )?;
             Self::add_column_if_missing(
                 conn,
@@ -797,7 +802,7 @@ impl Database {
         conn.execute("CREATE TABLE proxy_config_new (
             app_type TEXT PRIMARY KEY CHECK (app_type IN ('claude','codex','gemini')),
             proxy_enabled INTEGER NOT NULL DEFAULT 0, listen_address TEXT NOT NULL DEFAULT '127.0.0.1',
-            listen_port INTEGER NOT NULL DEFAULT 15721, enable_logging INTEGER NOT NULL DEFAULT 1,
+            listen_port INTEGER NOT NULL DEFAULT 30221, enable_logging INTEGER NOT NULL DEFAULT 1,
             enabled INTEGER NOT NULL DEFAULT 0, auto_failover_enabled INTEGER NOT NULL DEFAULT 0,
             max_retries INTEGER NOT NULL DEFAULT 3, streaming_first_byte_timeout INTEGER NOT NULL DEFAULT 60,
             streaming_idle_timeout INTEGER NOT NULL DEFAULT 120, non_streaming_timeout INTEGER NOT NULL DEFAULT 600,
@@ -1319,6 +1324,23 @@ impl Database {
             [],
         )
         .map_err(|e| AppError::Database(format!("v11 -> v12 创建 profiles 表失败: {e}")))?;
+        Ok(())
+    }
+
+    /// v12 -> v13：把上游默认端口迁到 302 独立端口。
+    /// 只替换旧默认值；用户设置的其它端口原样保留。
+    fn migrate_v12_to_v13(conn: &Connection) -> Result<(), AppError> {
+        if !Self::table_exists(conn, "proxy_config")?
+            || !Self::has_column(conn, "proxy_config", "listen_port")?
+        {
+            return Ok(());
+        }
+
+        conn.execute(
+            "UPDATE proxy_config SET listen_port = 30221 WHERE listen_port = 15721",
+            [],
+        )
+        .map_err(|e| AppError::Database(format!("v12 -> v13 迁移默认代理端口失败: {e}")))?;
         Ok(())
     }
 

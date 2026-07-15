@@ -57,7 +57,7 @@
     "deep-link": {
       "desktop": {
         "schemes": [
-          "ccswitch"
+          "ccswitch302"
         ]
       }
     },

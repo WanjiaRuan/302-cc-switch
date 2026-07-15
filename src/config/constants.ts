@@ -16,3 +16,6 @@ export const TEMPLATE_TYPES = {
 } as const;
 
 export type TemplateType = (typeof TEMPLATE_TYPES)[keyof typeof TEMPLATE_TYPES];
+
+// 与后端 proxy::types::DEFAULT_PROXY_PORT 保持一致。
+export const DEFAULT_PROXY_PORT = 30221;

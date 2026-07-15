@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+/// 302 CC Switch 独立默认端口，避免与上游 CC Switch 的 15721 冲突。
+pub const DEFAULT_PROXY_PORT: u16 = 30221;
+
 /// 代理服务器配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyConfig {
@@ -43,7 +46,7 @@ impl Default for ProxyConfig {
     fn default() -> Self {
         Self {
             listen_address: "127.0.0.1".to_string(),
-            listen_port: 15721, // 使用较少占用的高位端口
+            listen_port: DEFAULT_PROXY_PORT,
             max_retries: 3,
             request_timeout: 600,
             enable_logging: true,

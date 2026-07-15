@@ -21,6 +21,36 @@ describe("ai302 config helpers", () => {
     expect(readAi302ApiKey("gemini", gemini)).toBe("sk-gemini");
   });
 
+  it("migrates Claude Desktop API_KEY configs to AUTH_TOKEN", () => {
+    const legacy = {
+      env: {
+        ANTHROPIC_BASE_URL: "https://api.302.ai",
+        ANTHROPIC_AUTH_TOKEN: "",
+        ANTHROPIC_API_KEY: "sk-legacy",
+      },
+    };
+
+    expect(readAi302ApiKey("claude-desktop", legacy)).toBe("sk-legacy");
+
+    const updated = writeAi302ApiKey("claude-desktop", legacy, "sk-updated");
+    expect(updated.env).toEqual({
+      ANTHROPIC_BASE_URL: "https://api.302.ai",
+      ANTHROPIC_AUTH_TOKEN: "sk-updated",
+    });
+    expect(readAi302ApiKey("claude-desktop", updated)).toBe("sk-updated");
+  });
+
+  it("prefers a non-empty Claude Desktop AUTH_TOKEN over the legacy field", () => {
+    expect(
+      readAi302ApiKey("claude-desktop", {
+        env: {
+          ANTHROPIC_AUTH_TOKEN: "sk-token",
+          ANTHROPIC_API_KEY: "sk-api-key",
+        },
+      }),
+    ).toBe("sk-token");
+  });
+
   it("reports Claude passthrough until an explicit role mapping exists", () => {
     expect(
       getAi302ModelStrategy("claude", {

@@ -16,6 +16,16 @@ type OmoProviderRow = (
     String,
 );
 
+fn apply_seed_api_format(provider: &mut Provider, api_format: Option<&str>) {
+    let Some(api_format) = api_format else {
+        return;
+    };
+    provider
+        .meta
+        .get_or_insert_with(ProviderMeta::default)
+        .api_format = Some(api_format.to_string());
+}
+
 impl Database {
     pub fn get_all_providers(
         &self,
@@ -634,6 +644,7 @@ impl Database {
             provider.icon_color = Some(seed.icon_color.to_string());
             provider.sort_index = Some(next_sort_index);
             provider.created_at = Some(now_ms);
+            apply_seed_api_format(&mut provider, seed.api_format);
 
             self.save_provider(app_type_str, &provider)?;
             inserted += 1;
@@ -667,6 +678,7 @@ impl Database {
             .get_bool_flag("ai302_providers_seeded")
             .unwrap_or(false)
         {
+            self.repair_ai302_provider_metadata()?;
             return Ok(0);
         }
 
@@ -699,20 +711,51 @@ impl Database {
             provider.icon_color = Some(seed.icon_color.to_string());
             provider.sort_index = Some(next_sort_index);
             provider.created_at = Some(now_ms);
+            apply_seed_api_format(&mut provider, seed.api_format);
 
             self.save_provider(app_type_str, &provider)?;
             inserted += 1;
-            log::info!(
-                "✓ Seeded 302.AI provider: {} ({})",
-                seed.name,
-                app_type_str
-            );
+            log::info!("✓ Seeded 302.AI provider: {} ({})", seed.name, app_type_str);
         }
 
-        // 即使 inserted=0 也置 flag，避免每轮启动都重扫
+        // 即使 inserted=0 也置 flag，避免每轮启动都重扫缺失卡片
         self.set_setting("ai302_providers_seeded", "true")?;
+        self.repair_ai302_provider_metadata()?;
 
         Ok(inserted)
+    }
+
+    /// 只补内置卡片缺失的运行时元数据；不覆盖用户已经明确设置的格式。
+    /// 即使 seed flag 已存在也执行，以修复旧版本已经落库的 302 Codex 卡片。
+    fn repair_ai302_provider_metadata(&self) -> Result<usize, AppError> {
+        use crate::database::dao::providers_seed::AI302_SEEDS;
+
+        let mut repaired = 0_usize;
+        for seed in AI302_SEEDS {
+            let Some(api_format) = seed.api_format else {
+                continue;
+            };
+            let app_type = seed.app_type.as_str();
+            let Some(mut provider) = self.get_provider_by_id(seed.id, app_type)? else {
+                continue;
+            };
+            let meta = provider.meta.get_or_insert_with(ProviderMeta::default);
+            if meta
+                .api_format
+                .as_deref()
+                .is_some_and(|value| !value.trim().is_empty())
+            {
+                continue;
+            }
+
+            meta.api_format = Some(api_format.to_string());
+            self.save_provider(app_type, &provider)?;
+            repaired += 1;
+        }
+        if repaired > 0 {
+            log::info!("✓ Repaired metadata for {repaired} 302.AI provider(s)");
+        }
+        Ok(repaired)
     }
 
     /// 按 id 兜底插入单条 official seed（仅当目标表中该 id 不存在时插入）。
@@ -765,6 +808,7 @@ impl Database {
         provider.icon_color = Some(seed.icon_color.to_string());
         provider.sort_index = Some(next_sort_index);
         provider.created_at = Some(now_ms);
+        apply_seed_api_format(&mut provider, seed.api_format);
 
         self.save_provider(app_type_str, &provider)?;
 
@@ -847,5 +891,69 @@ mod ensure_official_seed_tests {
         let result =
             db.ensure_official_seed_by_id(CLAUDE_DESKTOP_OFFICIAL_PROVIDER_ID, AppType::Claude);
         assert!(result.is_err(), "(id, app_type) mismatch should be Err");
+    }
+
+    #[test]
+    fn ai302_codex_seed_sets_chat_format_metadata() {
+        let db = Database::memory().expect("memory db");
+        assert_eq!(db.init_ai302_providers().expect("seed"), 4);
+
+        let provider = db
+            .get_provider_by_id("ai302-codex", AppType::Codex.as_str())
+            .expect("query")
+            .expect("codex seed");
+        assert_eq!(
+            provider.meta.and_then(|meta| meta.api_format),
+            Some("openai_chat".to_string())
+        );
+    }
+
+    #[test]
+    fn ai302_seed_repair_only_fills_missing_metadata() {
+        let db = Database::memory().expect("memory db");
+        db.init_ai302_providers().expect("seed");
+
+        let mut provider = db
+            .get_provider_by_id("ai302-codex", AppType::Codex.as_str())
+            .expect("query")
+            .expect("codex seed");
+        provider.settings_config["auth"]["OPENAI_API_KEY"] =
+            serde_json::Value::String("preserved-key".to_string());
+        provider.meta.as_mut().expect("meta").api_format = None;
+        db.save_provider(AppType::Codex.as_str(), &provider)
+            .expect("save legacy shape");
+
+        assert_eq!(db.init_ai302_providers().expect("repair"), 0);
+        let repaired = db
+            .get_provider_by_id("ai302-codex", AppType::Codex.as_str())
+            .expect("query repaired")
+            .expect("repaired provider");
+        assert_eq!(
+            repaired
+                .meta
+                .as_ref()
+                .and_then(|meta| meta.api_format.as_deref()),
+            Some("openai_chat")
+        );
+        assert_eq!(
+            repaired.settings_config["auth"]["OPENAI_API_KEY"].as_str(),
+            Some("preserved-key")
+        );
+
+        let mut explicit = repaired;
+        explicit.meta.as_mut().expect("meta").api_format = Some("openai_responses".to_string());
+        db.save_provider(AppType::Codex.as_str(), &explicit)
+            .expect("save explicit format");
+        db.init_ai302_providers().expect("repeat repair");
+
+        let after = db
+            .get_provider_by_id("ai302-codex", AppType::Codex.as_str())
+            .expect("query explicit")
+            .expect("explicit provider");
+        assert_eq!(
+            after.meta.and_then(|meta| meta.api_format),
+            Some("openai_responses".to_string()),
+            "explicit user format must not be overwritten"
+        );
     }
 }

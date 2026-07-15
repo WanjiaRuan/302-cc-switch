@@ -11,8 +11,9 @@ use crate::database::CLAUDE_DESKTOP_OFFICIAL_PROVIDER_ID;
 use crate::error::AppError;
 use crate::provider::{ClaudeDesktopMode, Provider};
 
-pub const PROFILE_ID: &str = "00000000-0000-4000-8000-000000157210";
-pub const PROFILE_NAME: &str = "CC Switch";
+// Keep this separate from upstream; never remove an unknown/legacy profile automatically.
+pub const PROFILE_ID: &str = "302cc302-0000-4000-8302-000000030221";
+pub const PROFILE_NAME: &str = "302 CC Switch";
 
 #[cfg(any(target_os = "macos", windows, test))]
 const CONFIG_FILE: &str = "claude_desktop_config.json";
@@ -317,16 +318,19 @@ pub fn direct_gateway_credentials(
         })?
         .to_string();
 
-    let api_key = env
-        .get("ANTHROPIC_AUTH_TOKEN")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
+    let api_key = ["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY"]
+        .into_iter()
+        .find_map(|field| {
+            env.get(field)
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
         .ok_or_else(|| {
             AppError::localized(
                 "claude_desktop.provider.auth_token_missing",
-                "Claude Desktop 直连供应商缺少 ANTHROPIC_AUTH_TOKEN（Bearer Token）",
-                "Claude Desktop direct provider is missing ANTHROPIC_AUTH_TOKEN (Bearer Token)",
+                "Claude Desktop 直连供应商缺少 ANTHROPIC_AUTH_TOKEN 或 ANTHROPIC_API_KEY",
+                "Claude Desktop direct provider is missing ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY",
             )
         })?
         .to_string();
@@ -1367,6 +1371,45 @@ mod tests {
     }
 
     #[test]
+    fn direct_gateway_credentials_accept_legacy_api_key() {
+        let provider = Provider::with_id(
+            "legacy-api-key".to_string(),
+            "Legacy API key".to_string(),
+            json!({
+                "env": {
+                    "ANTHROPIC_BASE_URL": "https://gateway.example.com",
+                    "ANTHROPIC_AUTH_TOKEN": " ",
+                    "ANTHROPIC_API_KEY": "legacy-key"
+                }
+            }),
+            None,
+        );
+
+        let credentials = direct_gateway_credentials(&provider).expect("legacy key accepted");
+        assert_eq!(credentials.base_url, "https://gateway.example.com");
+        assert_eq!(credentials.api_key, "legacy-key");
+    }
+
+    #[test]
+    fn direct_gateway_credentials_prefer_non_empty_auth_token() {
+        let provider = Provider::with_id(
+            "both-key-fields".to_string(),
+            "Both key fields".to_string(),
+            json!({
+                "env": {
+                    "ANTHROPIC_BASE_URL": "https://gateway.example.com",
+                    "ANTHROPIC_AUTH_TOKEN": "preferred-token",
+                    "ANTHROPIC_API_KEY": "legacy-key"
+                }
+            }),
+            None,
+        );
+
+        let credentials = direct_gateway_credentials(&provider).expect("credentials resolved");
+        assert_eq!(credentials.api_key, "preferred-token");
+    }
+
+    #[test]
     fn proxy_gateway_base_url_rejects_unresolved_ephemeral_port() {
         let db = test_db();
         set_proxy_port(&db, 0);
@@ -1562,7 +1605,7 @@ mod tests {
         let profile: Value = read_json_file(&paths.profile_path).expect("read profile");
         assert_eq!(
             profile["inferenceGatewayBaseUrl"],
-            json!("http://127.0.0.1:15721/claude-desktop")
+            json!("http://127.0.0.1:30221/claude-desktop")
         );
         assert_eq!(profile["inferenceGatewayAuthScheme"], json!("bearer"));
         assert_eq!(profile["coworkEgressAllowedHosts"], json!(["*"]));
@@ -1595,7 +1638,7 @@ mod tests {
             let profile: Value = read_json_file(&paths.profile_path).expect("read profile");
             assert_eq!(
                 profile["inferenceGatewayBaseUrl"],
-                json!("http://127.0.0.1:15721/claude-desktop")
+                json!("http://127.0.0.1:30221/claude-desktop")
             );
             assert_eq!(
                 profile["inferenceModels"],
@@ -2200,7 +2243,7 @@ mod tests {
         });
         assert!(!is_compatible_direct_provider(&full_url));
 
-        let missing_bearer = Provider::with_id(
+        let legacy_api_key = Provider::with_id(
             "x-api-key".to_string(),
             "x-api-key".to_string(),
             json!({
@@ -2211,6 +2254,18 @@ mod tests {
             }),
             None,
         );
-        assert!(!is_compatible_direct_provider(&missing_bearer));
+        assert!(is_compatible_direct_provider(&legacy_api_key));
+
+        let missing_key = Provider::with_id(
+            "missing-key".to_string(),
+            "Missing key".to_string(),
+            json!({
+                "env": {
+                    "ANTHROPIC_BASE_URL": "https://gateway.example.com"
+                }
+            }),
+            None,
+        );
+        assert!(!is_compatible_direct_provider(&missing_key));
     }
 }

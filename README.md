@@ -30,7 +30,7 @@ Everything from upstream cc-switch v3.16.x:
 - **MCP, prompts & skills** — Unified MCP panel with bidirectional sync, Markdown prompt editor (CLAUDE.md / AGENTS.md / GEMINI.md), one-click skill install from GitHub/ZIP
 - **Usage & cost tracking** — Spending, requests, and token dashboards with per-model pricing
 - **Session manager & workspace** — Browse and restore conversation history; OpenClaw agent-file editor
-- **System** — Cloud sync (custom config dir + WebDAV), deep links (`ccswitch://`), dark/light theme, auto-launch, auto-updater, i18n (zh / zh-TW / en / ja)
+- **System** — Cloud sync (custom config dir + WebDAV), deep links (`ccswitch302://`), dark/light theme, auto-launch, auto-updater, i18n (zh / zh-TW / en / ja)
 
 ## Development
 

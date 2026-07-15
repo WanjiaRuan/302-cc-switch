@@ -38,8 +38,13 @@
 - README 重写为 302 版（仅 EN + ZH，删了日/德语版）；`assets/partners/` 整目录删除
 - 302.AI logo（GitHub org 头像）注册为图标 `ai302`，名称含 "302" 的供应商自动推断此图标
 - macOS 开机自启的 app 名匹配同步改为 `302 CC Switch`（`src-tauri/src/auto_launch.rs`，不改会静默失效）
-- 深链接协议保持 `ccswitch://` 未动；配置目录已改为 `~/.302-cc-switch`（2026-07-09，与原版
-  `~/.cc-switch` 完全隔离，不迁移旧数据；WebDAV/S3 默认远端根目录同步改为 `302-cc-switch-sync`）
+- 配置目录已改为 `~/.302-cc-switch`（2026-07-09，与原版 `~/.cc-switch` 完全隔离，不迁移
+  旧数据；WebDAV/S3 默认远端根目录同步改为 `302-cc-switch-sync`）
+- 2026-07-15 做轻量共存隔离：安装包只注册 `ccswitch302://`（解析器仍兼容旧
+  `ccswitch://`），默认代理端口改为 `30221`（v13 把仍为 `15721` 的记录迁走，其它端口
+  保留），Claude Desktop Profile 使用 302 独立 ID/名称；不检测或提示原版是否安装
+- `~/.claude`、`~/.codex` 等真实客户端配置仍是两个切换器共同管理的目标；若两者同时切换
+  同一客户端，仍以最后一次写入为准，这部分不通过后台检测或常驻协调来处理
 
 **3. 更新与发版**
 
@@ -110,13 +115,11 @@
      → **前端「默认选中 302」仅靠 code review + tsc；建议主理人点开各 app「添加供应商」肉眼确认**
    - 已用 `CC_SWITCH_TEST_HOME=/tmp/...` 隔离试跑（构建未通过即止），未触碰真实 `~/.cc-switch`
 
-⚠️ 302 种子相关的两个灰区（属 MEMO 既有的「真 key 实测」待办，非本次回归）：
-- **Codex 种子**：编辑时表单从 TOML 的 `wire_api="responses"` 反推 apiFormat=
-  `openai_responses`，而 302 预设用的是 `openai_chat`（本地 Responses→Chat 转换）。
-  种子只存 TOML 不存 meta，编辑补 key 后保存可能丢掉本地转换 → 拿真 key 验一次
-- **Claude Desktop 种子**：env 留空 `ANTHROPIC_API_KEY`，编辑时表单因 key 为空把
-  apiKeyField 默认成 `ANTHROPIC_AUTH_TOKEN`（后端 `direct_gateway_credentials` 正好要
-  AUTH_TOKEN，反而能跑通）；与预设的 API_KEY 写法不一致 → 同样待真 key 验证
+✅ 2026-07-15 已消除 302 种子的两个配置灰区（真 key 端到端实测仍归上方待办）：
+- **Codex 种子**：新种子写入 `meta.apiFormat="openai_chat"`；旧卡片启动时只补缺失值，
+  保留用户已经明确设置的格式和 API Key，确保本地 Responses→Chat 转换判断一致
+- **Claude Desktop 种子**：新种子和预设统一写 `ANTHROPIC_AUTH_TOKEN`；前后端继续读取
+  历史 `ANTHROPIC_API_KEY`，再次保存时无损迁移到 AUTH_TOKEN；两字段并存时优先 AUTH_TOKEN
 
 杂项备忘：
 - 隔离试跑用 `CC_SWITCH_TEST_HOME`（`config.rs:23` 专为 CI/本地隔离真实数据而设）
@@ -137,7 +140,8 @@
    - 302 种子不可删除：后端 `is_ai302_seed_id` 在 `ProviderService::delete` 入口拦截，
      前端 `isProtected` 禁用删除按钮（`ProviderCard` 按 id 前缀 `ai302-` 判定）
    - 精简 key 弹窗 `Ai302KeyDialog`：App.tsx 里 id 为 `ai302-*` 时替换 `EditProviderDialog`；
-     只填 key（按 app 落到 ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY）
+     只填 key（Claude 落到 ANTHROPIC_API_KEY，Claude Desktop 落到 ANTHROPIC_AUTH_TOKEN，
+     其余按 app 落到 OPENAI_API_KEY / GEMINI_API_KEY）
    - Claude 官方登录识别：live 导入时 env 无 BASE_URL/API_KEY/AUTH_TOKEN → 跳过 "default"
      落库，种子就位后把 claude-official 设为 current（镜像 Codex 的 has_login_material 逻辑）
    - 新增集成测试 2 个（官方识别跳过导入 / 302 删除被拒）
@@ -261,9 +265,15 @@ All 7 tools' preset lists were rewritten to contain only **official + 302.AI**, 
 - README rewritten (EN + ZH only; JA/DE deleted); `assets/partners/` removed entirely
 - 302.AI logo registered as icon `ai302`; providers named "302*" auto-infer it
 - macOS auto-launch app-name matching updated to `302 CC Switch` (`src-tauri/src/auto_launch.rs` — would silently break otherwise)
-- Deep-link scheme stays `ccswitch://`; config dir moved to `~/.302-cc-switch` (2026-07-09, fully
-  isolated from upstream's `~/.cc-switch`, no data migration; WebDAV/S3 default remote root is now
-  `302-cc-switch-sync`)
+- The config dir moved to `~/.302-cc-switch` (2026-07-09, fully isolated from upstream's
+  `~/.cc-switch`, no data migration; WebDAV/S3 default remote root is now `302-cc-switch-sync`).
+- Lightweight coexistence isolation landed on 2026-07-15: installers register only
+  `ccswitch302://` (the parser still accepts legacy `ccswitch://`), the default proxy port is
+  `30221` (schema v13 migrates rows still set to `15721` and preserves other ports), and the
+  Claude Desktop profile has a 302-specific ID/name. There is no upstream-install detection or
+  extra prompt.
+- Real client targets such as `~/.claude` and `~/.codex` are still managed by both switchers. If
+  both apps switch the same client, the last writer still wins; no background coordinator is added.
 
 **3. Updater & release**
 
@@ -331,16 +341,13 @@ Both changes shipped; all three traps handled:
    - Tried an isolated run via `CC_SWITCH_TEST_HOME` (stopped at the failed build); the real
      `~/.cc-switch` was never touched.
 
-⚠️ Two gray areas around the 302 seeds (these fall under the memo's existing "real-key test"
-TODOs, not regressions from this batch):
-- **Codex seed**: on edit the form infers apiFormat=`openai_responses` from the TOML's
-  `wire_api="responses"`, whereas the 302 preset uses `openai_chat` (local Responses→Chat
-  conversion). The seed stores only the TOML (no meta), so editing + saving may drop the
-  local conversion → verify with a real key.
-- **Claude Desktop seed**: env holds an empty `ANTHROPIC_API_KEY`, so on edit the form
-  defaults apiKeyField to `ANTHROPIC_AUTH_TOKEN` (which the backend's
-  `direct_gateway_credentials` requires anyway — actually works); inconsistent with the
-  preset's API_KEY style → also pending real-key verification.
+✅ The two 302 seed configuration gaps were closed on 2026-07-15 (real-key end-to-end testing
+remains in the TODOs above):
+- **Codex seed**: new seeds store `meta.apiFormat="openai_chat"`; startup backfills only a
+  missing value on old cards, preserving an explicit user format and the existing API key.
+- **Claude Desktop seed**: new seeds and presets use `ANTHROPIC_AUTH_TOKEN`; both frontend and
+  backend still read legacy `ANTHROPIC_API_KEY`, and the next save migrates it without losing
+  the key. When both fields exist, AUTH_TOKEN wins.
 
 Misc: isolated runs use `CC_SWITCH_TEST_HOME` (`config.rs:23`, purpose-built for CI/local
 data isolation). The brew original cc-switch still runs in the background writing to
@@ -363,8 +370,8 @@ Four commits, all installed and eyeballed on this Mac:
      `ProviderService::delete`; frontend `isProtected` disables the delete button
      (`ProviderCard` keys off the `ai302-` id prefix)
    - Minimal key dialog `Ai302KeyDialog`: App.tsx swaps it in for `EditProviderDialog` when
-     the id is `ai302-*`; key lands in ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY
-     per app
+     the id is `ai302-*`; Claude writes ANTHROPIC_API_KEY, Claude Desktop writes
+     ANTHROPIC_AUTH_TOKEN, and the remaining apps use OPENAI_API_KEY / GEMINI_API_KEY
    - Official-login detection for Claude: live import with no BASE_URL/API_KEY/AUTH_TOKEN in
      env skips creating "default"; startup then sets claude-official as current (mirrors
      Codex's has_login_material logic)

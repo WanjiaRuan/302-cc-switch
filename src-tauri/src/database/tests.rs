@@ -184,6 +184,41 @@ fn schema_migration_rejects_future_version() {
 }
 
 #[test]
+fn schema_v12_migrates_only_the_old_default_proxy_port() {
+    let conn = Connection::open_in_memory().expect("open memory db");
+    Database::create_tables_on_conn(&conn).expect("create tables");
+    conn.execute(
+        "UPDATE proxy_config SET listen_port = 15721 WHERE app_type IN ('claude', 'gemini')",
+        [],
+    )
+    .expect("seed old defaults");
+    conn.execute(
+        "UPDATE proxy_config SET listen_port = 18080 WHERE app_type = 'codex'",
+        [],
+    )
+    .expect("seed custom port");
+    Database::set_user_version(&conn, 12).expect("set user_version=12");
+
+    Database::apply_schema_migrations_on_conn(&conn).expect("apply v13 migration");
+
+    let port = |app: &str| -> i32 {
+        conn.query_row(
+            "SELECT listen_port FROM proxy_config WHERE app_type = ?1",
+            [app],
+            |row| row.get(0),
+        )
+        .expect("read port")
+    };
+    assert_eq!(port("claude"), 30221);
+    assert_eq!(port("gemini"), 30221);
+    assert_eq!(port("codex"), 18080, "custom port must be preserved");
+    assert_eq!(
+        Database::get_user_version(&conn).expect("version after migration"),
+        13
+    );
+}
+
+#[test]
 fn schema_migration_adds_missing_columns_for_providers() {
     let conn = Connection::open_in_memory().expect("open memory db");
 

@@ -106,7 +106,7 @@ export const claudeDesktopProviderPresets: ClaudeDesktopProviderPreset[] = [
     apiKeyUrl: "https://302.ai",
     category: "aggregator",
     baseUrl: "https://api.302.ai",
-    apiKeyField: "ANTHROPIC_API_KEY",
+    apiKeyField: "ANTHROPIC_AUTH_TOKEN",
     mode: "direct",
     apiFormat: "anthropic",
     modelRoutes: passthroughRoutes(),

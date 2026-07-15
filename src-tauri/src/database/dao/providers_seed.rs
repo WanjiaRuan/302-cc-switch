@@ -31,6 +31,8 @@ pub(crate) struct BuiltinProviderSeed {
     pub category: &'static str,
     /// settings_config 的 JSON 字符串，每个 app 结构不同。
     pub settings_config_json: &'static str,
+    /// 只存必须参与运行时路由判断的格式元数据；其余种子保持为空。
+    pub api_format: Option<&'static str>,
 }
 
 /// Claude / Claude Desktop / Codex / Gemini 的官方预设。
@@ -47,6 +49,7 @@ pub(crate) const OFFICIAL_SEEDS: &[BuiltinProviderSeed] = &[
         category: "official",
         // 空 env 让用户走 Claude CLI 默认认证流程
         settings_config_json: r#"{"env":{}}"#,
+        api_format: None,
     },
     BuiltinProviderSeed {
         id: CLAUDE_DESKTOP_OFFICIAL_PROVIDER_ID,
@@ -58,6 +61,7 @@ pub(crate) const OFFICIAL_SEEDS: &[BuiltinProviderSeed] = &[
         category: "official",
         // 空 env 只是占位；切换该 provider 时会恢复 Claude Desktop 1P 模式
         settings_config_json: r#"{"env":{}}"#,
+        api_format: None,
     },
     BuiltinProviderSeed {
         id: "codex-official",
@@ -69,6 +73,7 @@ pub(crate) const OFFICIAL_SEEDS: &[BuiltinProviderSeed] = &[
         category: "official",
         // 空 auth + 空 config 让用户走 ChatGPT Plus/Pro OAuth
         settings_config_json: r#"{"auth":{},"config":""}"#,
+        api_format: None,
     },
     BuiltinProviderSeed {
         id: "gemini-official",
@@ -80,6 +85,7 @@ pub(crate) const OFFICIAL_SEEDS: &[BuiltinProviderSeed] = &[
         category: "official",
         // 空 env + 空 config 让用户走 Google OAuth
         settings_config_json: r#"{"env":{},"config":{}}"#,
+        api_format: None,
     },
 ];
 
@@ -91,7 +97,7 @@ pub(crate) const OFFICIAL_SEEDS: &[BuiltinProviderSeed] = &[
 /// Claude Desktop 与前端保存后的 env 形态一致（直连模式，api.302.ai，空 key）。
 ///
 /// ⚠️ key 字段为空，仅为占位；用户需编辑补填真实 302 API Key 后再切换。
-/// AUTH_TOKEN vs API_KEY 的网关收发尚未真 key 实测（见 MEMO 待验证 #7）。
+/// Claude Desktop 新配置统一写 AUTH_TOKEN；读取层继续兼容历史 API_KEY。
 pub(crate) const AI302_SEEDS: &[BuiltinProviderSeed] = &[
     BuiltinProviderSeed {
         id: "ai302-claude",
@@ -102,8 +108,8 @@ pub(crate) const AI302_SEEDS: &[BuiltinProviderSeed] = &[
         icon_color: "#7C3AED",
         category: "aggregator",
         // 与官方 302cc CLI 写入字段一致：ANTHROPIC_BASE_URL 根域名 + 空 API_KEY
-        settings_config_json:
-            r#"{"env":{"ANTHROPIC_BASE_URL":"https://api.302.ai","ANTHROPIC_API_KEY":""}}"#,
+        settings_config_json: r#"{"env":{"ANTHROPIC_BASE_URL":"https://api.302.ai","ANTHROPIC_API_KEY":""}}"#,
+        api_format: None,
     },
     BuiltinProviderSeed {
         id: "ai302-claude-desktop",
@@ -113,10 +119,9 @@ pub(crate) const AI302_SEEDS: &[BuiltinProviderSeed] = &[
         icon: "ai302",
         icon_color: "#7C3AED",
         category: "aggregator",
-        // 直连模式：env 只放 base_url + 空 key，不写 meta（mode 默认 direct，
-        // 与官方 desktop seed 同款；编辑时表单从 env 推断，无 key 即占位）
-        settings_config_json:
-            r#"{"env":{"ANTHROPIC_BASE_URL":"https://api.302.ai","ANTHROPIC_API_KEY":""}}"#,
+        // 直连模式统一使用 AUTH_TOKEN；后台仍兼容历史 API_KEY。
+        settings_config_json: r#"{"env":{"ANTHROPIC_BASE_URL":"https://api.302.ai","ANTHROPIC_AUTH_TOKEN":""}}"#,
+        api_format: None,
     },
     BuiltinProviderSeed {
         id: "ai302-codex",
@@ -127,8 +132,10 @@ pub(crate) const AI302_SEEDS: &[BuiltinProviderSeed] = &[
         icon_color: "#7C3AED",
         category: "aggregator",
         // config.toml 等价于前端 generateThirdPartyConfig("302ai", "https://api.302.ai/v1")
-        // 的输出；wire_api="responses" 由本地 Responses→Chat 转换层兜底
+        // 的输出；wire_api="responses" 是 Codex 本地协议，api_format 则声明 302 上游
+        // 使用 Chat Completions，二者共同启用本地 Responses→Chat 转换。
         settings_config_json: r#"{"auth":{"OPENAI_API_KEY":""},"config":"model_provider = \"custom\"\nmodel = \"gpt-5.5\"\nmodel_reasoning_effort = \"high\"\ndisable_response_storage = true\n\n[model_providers.custom]\nname = \"302ai\"\nbase_url = \"https://api.302.ai/v1\"\nwire_api = \"responses\"\nrequires_openai_auth = true"}"#,
+        api_format: Some("openai_chat"),
     },
     BuiltinProviderSeed {
         id: "ai302-gemini",
@@ -140,6 +147,7 @@ pub(crate) const AI302_SEEDS: &[BuiltinProviderSeed] = &[
         category: "aggregator",
         // 与其他中转商的 Gemini 原生透传写法一致：根域名 + 模型名
         settings_config_json: r#"{"env":{"GOOGLE_GEMINI_BASE_URL":"https://api.302.ai","GEMINI_MODEL":"gemini-3.5-flash"},"config":{}}"#,
+        api_format: None,
     },
 ];
 
@@ -149,8 +157,7 @@ pub(crate) const AI302_SEEDS: &[BuiltinProviderSeed] = &[
 /// 用于 live 导入去重 / 历史桶归类——内置种子都不算「用户自建第三方」，
 /// 302 聚合种子也必须被认作内置，否则会挡住 live 导入或污染历史迁移。
 pub(crate) fn is_builtin_seed_id(id: &str) -> bool {
-    OFFICIAL_SEEDS.iter().any(|seed| seed.id == id)
-        || AI302_SEEDS.iter().any(|seed| seed.id == id)
+    OFFICIAL_SEEDS.iter().any(|seed| seed.id == id) || AI302_SEEDS.iter().any(|seed| seed.id == id)
 }
 
 /// 判断是否为 302.AI 聚合种子——这是产品的招牌入口，不允许删除
@@ -232,5 +239,19 @@ mod tests {
         assert!(toml.contains("base_url = \"https://api.302.ai/v1\""));
         assert!(toml.contains("model = \"gpt-5.5\""));
         assert_eq!(config["auth"]["OPENAI_API_KEY"].as_str(), Some(""));
+        assert_eq!(codex.api_format, Some("openai_chat"));
+
+        let desktop = AI302_SEEDS
+            .iter()
+            .find(|s| s.id == "ai302-claude-desktop")
+            .expect("ai302-claude-desktop seed");
+        let desktop_config =
+            serde_json::from_str::<serde_json::Value>(desktop.settings_config_json)
+                .expect("desktop json");
+        assert_eq!(
+            desktop_config["env"]["ANTHROPIC_AUTH_TOKEN"].as_str(),
+            Some("")
+        );
+        assert!(desktop_config["env"].get("ANTHROPIC_API_KEY").is_none());
     }
 }

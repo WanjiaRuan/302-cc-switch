@@ -1,6 +1,6 @@
 //! Deep link import functionality for CC Switch
 //!
-//! This module implements the ccswitch:// protocol for importing configurations
+//! This module implements the ccswitch302:// protocol for importing configurations
 //! via deep links. Supports importing:
 //! - Provider configurations (Claude/Codex/Gemini)
 //! - MCP server configurations
@@ -20,6 +20,15 @@ mod tests;
 
 use serde::{Deserialize, Serialize};
 
+pub const DEEP_LINK_SCHEME: &str = "ccswitch302";
+pub const LEGACY_DEEP_LINK_SCHEME: &str = "ccswitch";
+
+/// 旧协议只保留解析兼容；安装包仅注册 302 独立协议，避免抢占上游应用。
+pub fn is_supported_deeplink_url(url: &str) -> bool {
+    url.split_once("://")
+        .is_some_and(|(scheme, _)| scheme == DEEP_LINK_SCHEME || scheme == LEGACY_DEEP_LINK_SCHEME)
+}
+
 // Re-export public API
 pub use mcp::import_mcp_from_deeplink;
 pub use parser::parse_deeplink_url;
@@ -29,7 +38,7 @@ pub use skill::import_skill_from_deeplink;
 
 /// Deep link import request model
 ///
-/// Represents a parsed ccswitch:// URL ready for processing.
+/// Represents a parsed ccswitch302:// URL ready for processing.
 /// This struct contains all possible fields for all resource types.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

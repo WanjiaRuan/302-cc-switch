@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Switch } from "@/components/ui/switch";
 import { useProxyStatus } from "@/hooks/useProxyStatus";
 import { cn } from "@/lib/utils";
+import { DEFAULT_PROXY_PORT } from "@/config/constants";
 
 interface ClaudeDesktopRouteToggleProps {
   className?: string;
@@ -28,7 +29,7 @@ export function ClaudeDesktopRouteToggle({
     takeoverStatus?.claude || takeoverStatus?.codex || takeoverStatus?.gemini,
   );
   const routeAddress = status?.address ?? "127.0.0.1";
-  const routePort = status?.port ?? 15721;
+  const routePort = status?.port ?? DEFAULT_PROXY_PORT;
 
   const handleToggle = async (checked: boolean) => {
     try {

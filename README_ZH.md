@@ -30,7 +30,7 @@ API Key 在 [302.AI 管理后台](https://dash.302.ai) 获取，以 `sk-` 开头
 - **MCP / 提示词 / Skills** — 统一 MCP 面板双向同步、Markdown 提示词编辑（CLAUDE.md / AGENTS.md / GEMINI.md）、GitHub/ZIP 一键安装 Skills
 - **用量与成本** — 花费、请求数、token 仪表盘，支持按模型自定义价格
 - **会话管理与工作区** — 浏览恢复历史会话；OpenClaw agent 文件编辑器
-- **系统** — 云同步（自定义配置目录 + WebDAV）、深链接（`ccswitch://`）、深色/浅色主题、开机自启、自动更新、多语言（zh / zh-TW / en / ja）
+- **系统** — 云同步（自定义配置目录 + WebDAV）、深链接（`ccswitch302://`）、深色/浅色主题、开机自启、自动更新、多语言（zh / zh-TW / en / ja）
 
 ## 开发
 

@@ -91,7 +91,7 @@ Settings -> Routing -> Local Routing
 
 Complete two actions:
 
-1. Turn on the main routing switch to start the local service. The default address is usually `127.0.0.1:15721`.
+1. Turn on the main routing switch to start the local service. The default address is usually `127.0.0.1:30221`.
 2. Under `Routing Enabled`, turn on `Codex`.
 
 ![Enabling Codex takeover on the local routing page](../images/codex-deepseek-routing/03-local-route-codex-takeover.png)

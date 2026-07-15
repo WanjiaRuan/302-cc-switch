@@ -120,7 +120,7 @@ fn redact_url_for_log(url_str: &str) -> String {
     }
 }
 
-/// 统一处理 ccswitch:// 深链接 URL
+/// 统一处理 302 CC Switch 深链接 URL
 ///
 /// - 解析 URL
 /// - 向前端发射 `deeplink-import` / `deeplink-error` 事件
@@ -131,7 +131,7 @@ fn handle_deeplink_url(
     focus_main_window: bool,
     source: &str,
 ) -> bool {
-    if !url_str.starts_with("ccswitch://") {
+    if !crate::deeplink::is_supported_deeplink_url(url_str) {
         return false;
     }
 
@@ -881,7 +881,7 @@ pub fn run() {
                 #[cfg(target_os = "linux")]
                 {
                     // Use Tauri's path API to get correct path (includes app identifier)
-                    // tauri-plugin-deep-link writes to: ~/.local/share/com.ccswitch.desktop/applications/cc-switch-handler.desktop
+                    // tauri-plugin-deep-link writes under the app's com.ai302.ccswitch data directory.
                     // Only register if .desktop file doesn't exist to avoid overwriting user customizations
                     let should_register = app
                         .path()
@@ -929,7 +929,7 @@ pub fn run() {
                         log::debug!("  URL[{i}]: {}", redact_url_for_log(url_str));
 
                         if handle_deeplink_url(&app_handle, url_str, true, "on_open_url") {
-                            break; // Process only first ccswitch:// URL
+                            break; // Process only the first supported deep-link URL
                         }
                     }
                 }
@@ -1635,13 +1635,13 @@ pub fn run() {
                         }
                     }
                 }
-                // 处理通过自定义 URL 协议触发的打开事件（例如 ccswitch://...）
+                // 处理通过自定义 URL 协议触发的打开事件
                 RunEvent::Opened { urls } => {
                     if let Some(url) = urls.first() {
                         let url_str = url.to_string();
                         log::info!("RunEvent::Opened with URL: {url_str}");
 
-                        if url_str.starts_with("ccswitch://") {
+                        if crate::deeplink::is_supported_deeplink_url(&url_str) {
                             if crate::lightweight::is_lightweight_mode() {
                                 if let Err(e) = crate::lightweight::exit_lightweight_mode(app_handle)
                                 {

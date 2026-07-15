@@ -1647,7 +1647,7 @@ wire_api = "responses"
     let live_config =
         std::fs::read_to_string(cc_switch_lib::get_codex_config_path()).expect("read config.toml");
     assert!(
-        live_config.contains("http://127.0.0.1:15721/v1"),
+        live_config.contains("http://127.0.0.1:30221/v1"),
         "live config should remain pointed at the local proxy"
     );
     assert!(
