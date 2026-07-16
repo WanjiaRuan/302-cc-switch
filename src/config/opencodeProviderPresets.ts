@@ -281,7 +281,7 @@ export function getPresetModelDefaults(
 export const opencodeProviderPresets: OpenCodeProviderPreset[] = [
   {
     // 302.AI 走 Anthropic SDK：base 是 Anthropic 兼容层的 /v1。
-    name: "302.AI",
+    name: "302.AI（国内）",
     websiteUrl: "https://api.302ai.cn",
     apiKeyUrl: "https://302.ai",
     settingsConfig: {
@@ -289,6 +289,34 @@ export const opencodeProviderPresets: OpenCodeProviderPreset[] = [
       name: "302.AI",
       options: {
         baseURL: "https://api.302ai.cn/v1",
+        apiKey: "",
+        setCacheKey: true,
+      },
+      models: {
+        "claude-opus-4-8": { name: "Claude Opus 4.8" },
+        "claude-sonnet-5": { name: "Claude Sonnet 5" },
+      },
+    },
+    category: "aggregator",
+    icon: "ai302",
+    iconColor: "#7C3AED",
+    templateValues: {
+      apiKey: {
+        label: "API Key",
+        placeholder: "",
+        editorValue: "",
+      },
+    },
+  },
+  {
+    name: "302.AI（海外）",
+    websiteUrl: "https://api.302.ai",
+    apiKeyUrl: "https://302.ai",
+    settingsConfig: {
+      npm: "@ai-sdk/anthropic",
+      name: "302.AI",
+      options: {
+        baseURL: "https://api.302.ai/v1",
         apiKey: "",
         setCacheKey: true,
       },

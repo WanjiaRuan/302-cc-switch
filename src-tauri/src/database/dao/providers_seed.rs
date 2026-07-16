@@ -2,8 +2,8 @@
 //!
 //! 启动时调用 `Database::init_default_official_providers` /
 //! `Database::init_ai302_providers` 把这些条目写入 `providers` 表，让所有用户
-//! 开箱即看到 302.AI 供应商。独占模式应用提供海外、国内双节点；
-//! 累加模式应用提供国内节点卡片。所有 302.AI 种子都没有 key，需用户补填。
+//! 开箱即看到 302.AI 供应商。所有支持的应用都提供海外、国内双节点；
+//! 所有 302.AI 种子都没有 key，需用户补填。
 //!
 //! 字段与前端预设保持一致，参见：
 //! - `src/config/claudeProviderPresets.ts`（"Claude Official" / "302.AI"）
@@ -92,8 +92,8 @@ pub(crate) const OFFICIAL_SEEDS: &[BuiltinProviderSeed] = &[
 
 /// 302.AI 国内 / 海外聚合层种子（无 key 占位）。
 ///
-/// 4 个独占模式应用保留国内、海外双卡；OpenCode、OpenClaw、Hermes
-/// 各补一张国内卡，但不自动写入它们的 live 配置，用户填 key 后再点“添加”。
+/// 所有应用都保留国内、海外双卡。OpenCode、OpenClaw、Hermes 的卡片不会
+/// 自动写入 live 配置，用户填 key 后再点“添加”。
 /// Claude Desktop 与前端保存后的 env 形态一致（直连模式，空 key）。
 ///
 /// ⚠️ key 字段为空，仅为占位；用户需编辑补填真实 302 API Key 后再切换。
@@ -149,6 +149,39 @@ pub(crate) const AI302_SEEDS: &[BuiltinProviderSeed] = &[
         category: "aggregator",
         // 与其他中转商的 Gemini 原生透传写法一致：根域名 + 模型名
         settings_config_json: r#"{"env":{"GOOGLE_GEMINI_BASE_URL":"https://api.302.ai","GEMINI_API_KEY":"","GEMINI_MODEL":"gemini-3.5-flash"},"config":{}}"#,
+        api_format: None,
+    },
+    BuiltinProviderSeed {
+        id: "ai302-opencode",
+        app_type: AppType::OpenCode,
+        name: "302.AI（海外）",
+        website_url: "https://api.302.ai",
+        icon: "ai302",
+        icon_color: "#7C3AED",
+        category: "aggregator",
+        settings_config_json: r#"{"npm":"@ai-sdk/anthropic","name":"302.AI","options":{"baseURL":"https://api.302.ai/v1","apiKey":"","setCacheKey":true},"models":{"claude-opus-4-8":{"name":"Claude Opus 4.8"},"claude-sonnet-5":{"name":"Claude Sonnet 5"}}}"#,
+        api_format: None,
+    },
+    BuiltinProviderSeed {
+        id: "ai302-openclaw",
+        app_type: AppType::OpenClaw,
+        name: "302.AI（海外）",
+        website_url: "https://api.302.ai",
+        icon: "ai302",
+        icon_color: "#7C3AED",
+        category: "aggregator",
+        settings_config_json: r#"{"baseUrl":"https://api.302.ai","apiKey":"","api":"anthropic-messages","models":[{"id":"claude-opus-4-8","name":"Claude Opus 4.8","contextWindow":200000},{"id":"claude-sonnet-5","name":"Claude Sonnet 5","contextWindow":200000}]}"#,
+        api_format: None,
+    },
+    BuiltinProviderSeed {
+        id: "ai302-hermes",
+        app_type: AppType::Hermes,
+        name: "302.AI（海外）",
+        website_url: "https://api.302.ai",
+        icon: "ai302",
+        icon_color: "#7C3AED",
+        category: "aggregator",
+        settings_config_json: r#"{"name":"302ai","base_url":"https://api.302.ai/v1","api_key":"","api_mode":"chat_completions","models":[{"id":"gpt-5.5","name":"GPT-5.5"},{"id":"claude-sonnet-5","name":"Claude Sonnet 5"}]}"#,
         api_format: None,
     },
     BuiltinProviderSeed {
@@ -260,16 +293,19 @@ mod tests {
         assert!(is_builtin_seed_id(CLAUDE_DESKTOP_OFFICIAL_PROVIDER_ID));
     }
 
-    /// 4 个独占模式应用各有国内、海外两条；3 个累加模式应用至少有一条国内卡。
+    /// 所有应用都应同时提供国内、海外两条 302.AI 配置。
     #[test]
     fn ai302_seeds_cover_all_apps() {
         let app_types: Vec<AppType> = AI302_SEEDS.iter().map(|s| s.app_type.clone()).collect();
-        assert_eq!(AI302_SEEDS.len(), 11, "all apps should have 302.AI seeds");
+        assert_eq!(AI302_SEEDS.len(), 14, "all apps should have regional seeds");
         for app_type in [
             AppType::Claude,
             AppType::ClaudeDesktop,
             AppType::Codex,
             AppType::Gemini,
+            AppType::OpenCode,
+            AppType::OpenClaw,
+            AppType::Hermes,
         ] {
             assert_eq!(
                 app_types
@@ -278,16 +314,6 @@ mod tests {
                     .count(),
                 2,
                 "{app_type:?} should have domestic and overseas seeds"
-            );
-        }
-        for app_type in [AppType::OpenCode, AppType::OpenClaw, AppType::Hermes] {
-            assert_eq!(
-                app_types
-                    .iter()
-                    .filter(|candidate| **candidate == app_type)
-                    .count(),
-                1,
-                "{app_type:?} should have a domestic 302.AI seed"
             );
         }
     }

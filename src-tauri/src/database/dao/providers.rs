@@ -1049,7 +1049,7 @@ mod ensure_official_seed_tests {
     #[test]
     fn ai302_codex_seed_sets_responses_format_metadata() {
         let db = Database::memory().expect("memory db");
-        assert_eq!(db.init_ai302_providers().expect("seed"), 11);
+        assert_eq!(db.init_ai302_providers().expect("seed"), 14);
 
         let provider = db
             .get_provider_by_id("ai302-codex", AppType::Codex.as_str())
@@ -1081,7 +1081,7 @@ mod ensure_official_seed_tests {
         db.set_setting("ai302_providers_seeded", "true")
             .expect("set legacy flag");
 
-        assert_eq!(db.init_ai302_providers().expect("regional upgrade"), 11);
+        assert_eq!(db.init_ai302_providers().expect("regional upgrade"), 14);
         assert!(db
             .get_provider_by_id("ai302-cn-claude", AppType::Claude.as_str())
             .expect("query domestic provider")
@@ -1098,8 +1098,11 @@ mod ensure_official_seed_tests {
         db.init_ai302_providers().expect("seed all apps");
 
         for (app_type, id) in [
+            (AppType::OpenCode, "ai302-opencode"),
             (AppType::OpenCode, "ai302-cn-opencode"),
+            (AppType::OpenClaw, "ai302-openclaw"),
             (AppType::OpenClaw, "ai302-cn-openclaw"),
+            (AppType::Hermes, "ai302-hermes"),
             (AppType::Hermes, "ai302-cn-hermes"),
         ] {
             db.delete_provider(app_type.as_str(), id)
@@ -1108,11 +1111,14 @@ mod ensure_official_seed_tests {
 
         assert_eq!(
             db.init_ai302_providers().expect("backfill additive apps"),
-            3
+            6
         );
         for (app_type, id) in [
+            (AppType::OpenCode, "ai302-opencode"),
             (AppType::OpenCode, "ai302-cn-opencode"),
+            (AppType::OpenClaw, "ai302-openclaw"),
             (AppType::OpenClaw, "ai302-cn-openclaw"),
+            (AppType::Hermes, "ai302-hermes"),
             (AppType::Hermes, "ai302-cn-hermes"),
         ] {
             assert!(db
