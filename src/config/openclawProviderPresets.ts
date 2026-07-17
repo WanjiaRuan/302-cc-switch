@@ -101,8 +101,50 @@ export const openclawApiProtocols = [
 export const openclawProviderPresets: OpenClawProviderPreset[] = [
   {
     // 302.AI：Anthropic Messages 协议直连 302 兼容层（官方 302oc CLI 同款端点）。
-    name: "302.AI",
-    websiteUrl: "https://302.ai",
+    name: "302.AI（国内）",
+    websiteUrl: "https://api.302ai.cn",
+    apiKeyUrl: "https://302.ai",
+    settingsConfig: {
+      baseUrl: "https://api.302ai.cn",
+      apiKey: "",
+      api: "anthropic-messages",
+      models: [
+        {
+          id: "claude-opus-4-8",
+          name: "Claude Opus 4.8",
+          contextWindow: 200000,
+        },
+        {
+          id: "claude-sonnet-5",
+          name: "Claude Sonnet 5",
+          contextWindow: 200000,
+        },
+      ],
+    },
+    category: "aggregator",
+    icon: "ai302",
+    iconColor: "#7C3AED",
+    templateValues: {
+      apiKey: {
+        label: "API Key",
+        placeholder: "",
+        editorValue: "",
+      },
+    },
+    suggestedDefaults: {
+      model: {
+        primary: "302ai/claude-opus-4-8",
+        fallbacks: ["302ai/claude-sonnet-5"],
+      },
+      modelCatalog: {
+        "302ai/claude-opus-4-8": { alias: "Opus" },
+        "302ai/claude-sonnet-5": { alias: "Sonnet" },
+      },
+    },
+  },
+  {
+    name: "302.AI（海外）",
+    websiteUrl: "https://api.302.ai",
     apiKeyUrl: "https://302.ai",
     settingsConfig: {
       baseUrl: "https://api.302.ai",

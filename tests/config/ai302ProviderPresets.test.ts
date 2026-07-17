@@ -6,9 +6,9 @@ import { claudeDesktopProviderPresets } from "@/config/claudeDesktopProviderPres
 import { opencodeProviderPresets } from "@/config/opencodeProviderPresets";
 import { openclawProviderPresets } from "@/config/openclawProviderPresets";
 import { hermesProviderPresets } from "@/config/hermesProviderPresets";
+import { AI302_SEED_IDS } from "@/config/ai302";
 
-// 302 版核心约定：每个应用的预设列表只有「官方 + 302.AI」
-// （opencode/openclaw 无官方供应商；opencode 另保留两个自定义模板）。
+// 国内、海外 302.AI 节点必须是可辨认、可独立选择的预设。
 
 describe("302.AI presets across apps", () => {
   it("Claude: official + 302.AI only", () => {
@@ -26,6 +26,7 @@ describe("302.AI presets across apps", () => {
     expect(p.apiKeyField).toBe("ANTHROPIC_API_KEY");
     // 国内节点作为测速候选
     expect(p.endpointCandidates).toContain("https://api.302ai.cn");
+    expect(AI302_SEED_IDS.claude).toBe("ai302-cn-claude");
   });
 
   it("Codex: official + 302.AI + OpenAI API (direct escape hatch)", () => {
@@ -37,11 +38,19 @@ describe("302.AI presets across apps", () => {
       "302.AI",
       "OpenAI API",
     ]);
-    // 302 的 Codex 专用端点（/codex/v1）走原生 Responses，直连不转换
+    // 302 的海外、国内地址都直接使用 /v1，没有 /codex 路径
     const p = codexProviderPresets.find((x) => x.name === "302.AI")!;
-    expect(p.config).toContain('base_url = "https://api.302.ai/codex/v1"');
+    expect(p.config).toContain('base_url = "https://api.302.ai/v1"');
+    expect(p.config).toContain("requires_openai_auth = false");
+    expect(p.config).not.toContain("/codex/");
+    expect(p.endpointCandidates).toContain("https://api.302.ai/v1");
+    expect(p.endpointCandidates).toContain("https://api.302ai.cn/v1");
+    expect(p.endpointCandidates?.every((url) => !url.includes("/codex/"))).toBe(
+      true,
+    );
     expect(p.apiFormat).toBe("openai_responses");
     expect(p.auth).toHaveProperty("OPENAI_API_KEY", "");
+    expect(AI302_SEED_IDS.codex).toBe("ai302-cn-codex");
 
     const direct = codexProviderPresets.find((x) => x.name === "OpenAI API")!;
     expect(direct.config).toContain('base_url = "https://api.openai.com/v1"');
@@ -58,6 +67,8 @@ describe("302.AI presets across apps", () => {
     ]);
     const p = geminiProviderPresets.find((x) => x.name === "302.AI")!;
     expect(p.baseURL).toBe("https://api.302.ai");
+    expect((p.settingsConfig as any).env).toHaveProperty("GEMINI_API_KEY", "");
+    expect(AI302_SEED_IDS.gemini).toBe("ai302-cn-gemini");
   });
 
   it("Claude Desktop: official + 302.AI only, passthrough routes", () => {
@@ -71,34 +82,59 @@ describe("302.AI presets across apps", () => {
     expect(p.modelRoutes?.length).toBe(3);
   });
 
-  it("OpenCode: 302.AI + custom templates only", () => {
+  it("OpenCode: both 302.AI regions + custom templates", () => {
     expect(opencodeProviderPresets.map((p) => p.name)).toEqual([
-      "302.AI",
+      "302.AI（国内）",
+      "302.AI（海外）",
       "Oh My OpenCode",
       "Oh My OpenCode Slim",
     ]);
-    const p = opencodeProviderPresets.find((x) => x.name === "302.AI")!;
-    expect(p.settingsConfig.npm).toBe("@ai-sdk/anthropic");
-    expect((p.settingsConfig.options as any).baseURL).toBe(
+    const overseas = opencodeProviderPresets.find(
+      (x) => x.name === "302.AI（海外）",
+    )!;
+    const domestic = opencodeProviderPresets.find(
+      (x) => x.name === "302.AI（国内）",
+    )!;
+    expect(overseas.settingsConfig.npm).toBe("@ai-sdk/anthropic");
+    expect(domestic.settingsConfig.npm).toBe("@ai-sdk/anthropic");
+    expect((overseas.settingsConfig.options as any).baseURL).toBe(
       "https://api.302.ai/v1",
+    );
+    expect((domestic.settingsConfig.options as any).baseURL).toBe(
+      "https://api.302ai.cn/v1",
     );
   });
 
-  it("OpenClaw: 302.AI only, anthropic-messages protocol", () => {
-    expect(openclawProviderPresets.map((p) => p.name)).toEqual(["302.AI"]);
-    const p = openclawProviderPresets[0];
-    expect(p.settingsConfig.baseUrl).toBe("https://api.302.ai");
-    expect(p.settingsConfig.api).toBe("anthropic-messages");
+  it("OpenClaw: both 302.AI regions use anthropic-messages", () => {
+    expect(openclawProviderPresets.map((p) => p.name)).toEqual([
+      "302.AI（国内）",
+      "302.AI（海外）",
+    ]);
+    const [domestic, overseas] = openclawProviderPresets;
+    expect(overseas.settingsConfig.baseUrl).toBe("https://api.302.ai");
+    expect(domestic.settingsConfig.baseUrl).toBe("https://api.302ai.cn");
+    expect(overseas.settingsConfig.api).toBe("anthropic-messages");
+    expect(domestic.settingsConfig.api).toBe("anthropic-messages");
   });
 
-  it("Hermes: official + 302.AI only", () => {
+  it("Hermes: official + both 302.AI regions", () => {
     expect(hermesProviderPresets.map((p) => p.name)).toEqual([
       "Nous Research",
-      "302.AI",
+      "302.AI（国内）",
+      "302.AI（海外）",
     ]);
-    const p = hermesProviderPresets.find((x) => x.name === "302.AI")!;
-    expect(p.settingsConfig.base_url).toBe("https://api.302.ai/v1");
-    expect(p.settingsConfig.api_mode).toBe("chat_completions");
+    const overseas = hermesProviderPresets.find(
+      (x) => x.name === "302.AI（海外）",
+    )!;
+    const domestic = hermesProviderPresets.find(
+      (x) => x.name === "302.AI（国内）",
+    )!;
+    expect(overseas.settingsConfig.base_url).toBe("https://api.302.ai/v1");
+    expect(domestic.settingsConfig.base_url).toBe(
+      "https://api.302ai.cn/v1",
+    );
+    expect(overseas.settingsConfig.api_mode).toBe("chat_completions");
+    expect(domestic.settingsConfig.api_mode).toBe("chat_completions");
   });
 
   it("no partner promotions remain in any preset list", () => {

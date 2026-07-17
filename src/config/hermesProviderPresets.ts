@@ -161,8 +161,29 @@ export const hermesProviderPresets: HermesProviderPreset[] = [
   },
   {
     // 302.AI 的 OpenAI 兼容层（/v1 chat completions），全模型可用。
-    name: "302.AI",
-    websiteUrl: "https://302.ai",
+    name: "302.AI（国内）",
+    websiteUrl: "https://api.302ai.cn",
+    apiKeyUrl: "https://302.ai",
+    settingsConfig: {
+      name: "302ai",
+      base_url: "https://api.302ai.cn/v1",
+      api_key: "",
+      api_mode: "chat_completions",
+      models: [
+        { id: "gpt-5.5", name: "GPT-5.5" },
+        { id: "claude-sonnet-5", name: "Claude Sonnet 5" },
+      ],
+    },
+    category: "aggregator",
+    icon: "ai302",
+    iconColor: "#7C3AED",
+    suggestedDefaults: {
+      model: { default: "gpt-5.5", provider: "302ai" },
+    },
+  },
+  {
+    name: "302.AI（海外）",
+    websiteUrl: "https://api.302.ai",
     apiKeyUrl: "https://302.ai",
     settingsConfig: {
       name: "302ai",
