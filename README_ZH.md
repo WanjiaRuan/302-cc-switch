@@ -8,16 +8,30 @@
 
 </div>
 
-302 CC Switch 是 [cc-switch](https://github.com/farion1231/cc-switch)（MIT）的 fork。它保留原版全部功能，把每个工具的预设列表精简为两类：**官方**与 **302.AI**。填入 302.AI API Key，选择工具，即可切换。
+302 CC Switch 基于优秀的开源项目 [cc-switch](https://github.com/farion1231/cc-switch)（MIT）构建。功能与原版完全一致，但**为 302.AI 用户预先配置好了一切**：不用面对空白配置页，302.AI 已作为内置供应商覆盖所有支持的工具，官方端点也一并保留。不用查 API 地址、不用猜配置格式——填入 302.AI Key，选择工具，即刻连通。对新手默认友好，需要自定义供应商也完全开放。
 
-## 与上游的区别
+## 下载
 
-- 移除全部第三方 / 赞助商供应商预设
-- **302.AI** 作为内置预设覆盖全部 7 个工具
+从 [最新 Release](https://github.com/WanjiaRuan/302-cc-switch/releases/latest) 下载对应平台的安装包：
+
+| 平台 | 文件 |
+|---|---|
+| macOS（Apple 芯片） | `302-CC-Switch_..._macOS_Apple-Silicon.dmg` |
+| macOS（Intel） | `302-CC-Switch_..._macOS_Intel.dmg` |
+| Windows（x64） | `302-CC-Switch_..._Windows_x64_Setup.exe` |
+
+历史版本和更新说明见 [Releases 页面](https://github.com/WanjiaRuan/302-cc-switch/releases)。
+
+> **macOS 首次打开**：应用尚未使用 Apple 开发者证书签名。首次启动请**右键点击应用 → 打开 → 打开**，跳过「未验证开发者」提示，之后正常双击即可。
+
+## 我们为 302.AI 用户加了什么
+
+- **302.AI 内置，开箱即用** — 全部 7 个工具预先配置完成
   - Anthropic 兼容端点：`https://api.302.ai`（Claude Code、Claude Desktop、OpenClaw、OpenCode）
   - OpenAI 兼容端点：`https://api.302.ai/v1`（Codex、Hermes）
-  - 国内节点 `https://api.302ai.cn` 已加入端点候选，可测速切换
-- 自动更新指向本仓库的 Releases
+  - 国内节点 `https://api.302ai.cn` 可测速切换，速度更优
+- **一份干净的起点清单** — 官方端点 + 302.AI，没有第三方预设干扰新手（随时可以手动加回任何供应商）
+- **自动更新** — 通过本仓库 Releases 推送
 
 API Key 在 [302.AI 管理后台](https://dash.302.ai) 获取，以 `sk-` 开头。
 

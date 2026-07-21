@@ -8,16 +8,30 @@ English | [中文](README_ZH.md) | [Changelog](CHANGELOG.md)
 
 </div>
 
-302 CC Switch is a fork of [cc-switch](https://github.com/farion1231/cc-switch) (MIT). It keeps every feature of the original app and strips the preset list down to two kinds of providers per tool: the **official** one and **302.AI**. Bring your 302.AI API key, pick a tool, and switch.
+302 CC Switch is built on [cc-switch](https://github.com/farion1231/cc-switch) (MIT), the excellent open-source provider switcher. It's the same full-featured app, **pre-configured for 302.AI users**: instead of a blank slate, you get 302.AI as a built-in provider for every supported tool, plus the official endpoints. No hunting for API base URLs, no guessing at config formats — paste your 302.AI key, pick a tool, and you're connected. Newcomer-friendly by default, fully open to custom providers if you need them.
 
-## What's different from upstream
+## Download
 
-- All third-party / sponsor provider presets removed
-- **302.AI** ships as a built-in preset for all 7 supported tools
+Grab the installer for your platform from the [latest release](https://github.com/WanjiaRuan/302-cc-switch/releases/latest):
+
+| Platform | File |
+|---|---|
+| macOS (Apple Silicon) | `302-CC-Switch_..._macOS_Apple-Silicon.dmg` |
+| macOS (Intel) | `302-CC-Switch_..._macOS_Intel.dmg` |
+| Windows (x64) | `302-CC-Switch_..._Windows_x64_Setup.exe` |
+
+Older versions and release notes live on the [Releases page](https://github.com/WanjiaRuan/302-cc-switch/releases).
+
+> **macOS Gatekeeper**: the app is not signed with an Apple Developer certificate yet. On first launch, right-click the app → **Open** → **Open** to bypass the "unidentified developer" warning. You only need to do this once.
+
+## What we added for 302.AI users
+
+- **302.AI built in, ready out of the box** — pre-configured for all 7 supported tools
   - Anthropic-compatible endpoint: `https://api.302.ai` (Claude Code, Claude Desktop, OpenClaw, OpenCode)
   - OpenAI-compatible endpoint: `https://api.302.ai/v1` (Codex, Hermes)
-  - Mainland China node `https://api.302ai.cn` available in endpoint candidates for speed testing
-- Auto-updates point to this repository's releases
+  - Mainland China node `https://api.302ai.cn` available for speed-optimized switching
+- **A curated starting list** — official endpoints + 302.AI, no third-party clutter to confuse first-time users (you can always add any provider back manually)
+- **Auto-updates** delivered through this repository's releases
 
 Get an API key from the [302.AI dashboard](https://dash.302.ai) — it starts with `sk-`.
 
